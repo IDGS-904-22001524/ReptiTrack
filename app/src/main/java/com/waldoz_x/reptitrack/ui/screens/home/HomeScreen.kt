@@ -1,7 +1,7 @@
 // com.waldoz_x.reptitrack.ui.screens.home/HomeScreen.kt
 package com.waldoz_x.reptitrack.ui.screens.home
 
-import android.util.Log // Importación necesaria para Log.d
+import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Settings // Importa el icono de ajustes
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -23,26 +24,28 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.waldoz_x.reptitrack.domain.model.Terrarium
-import com.waldoz_x.reptitrack.R // Asegúrate de que R esté disponible para drawables
+import com.waldoz_x.reptitrack.R
 import com.waldoz_x.reptitrack.ui.components.TerrariumCard
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeRoute(
-    navigateToTerrariumDetail: (String) -> Unit, // Callback para navegar al detalle del terrario
-    viewModel: HomeViewModel = hiltViewModel() // Inyecta el HomeViewModel
+    navigateToTerrariumDetail: (String) -> Unit,
+    navigateToSettings: () -> Unit, // ¡NUEVO! Callback para navegar a ajustes
+    viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val isMqttConnected by viewModel.mqttConnectionState.collectAsState()
-    val receivedMqttMessage by viewModel.mqttReceivedMessages.collectAsState()
+    // Eliminado: val receivedMqttMessage by viewModel.mqttReceivedMessages.collectAsState()
 
     HomeScreen(
         uiState = uiState,
         onTerrariumClick = navigateToTerrariumDetail,
         onRetryClick = viewModel::loadTerrariums,
         isMqttConnected = isMqttConnected,
-        receivedMqttMessage = receivedMqttMessage,
-        onPublishCommand = viewModel::publishMqttCommand
+        // Eliminado: receivedMqttMessage = receivedMqttMessage,
+        // Eliminado: onPublishCommand = viewModel::publishMqttCommand,
+        onSettingsClick = navigateToSettings // Pasa el callback de ajustes
     )
 }
 
@@ -50,20 +53,22 @@ fun HomeRoute(
 @Composable
 fun HomeScreen(
     uiState: HomeUiState,
-    onTerrariumClick: (String) -> Unit, // Callback para cuando se hace clic en un terrario
+    onTerrariumClick: (String) -> Unit,
     onRetryClick: () -> Unit,
     isMqttConnected: Boolean,
-    receivedMqttMessage: Pair<String, String>?,
-    onPublishCommand: (String, String) -> Unit
+    // Eliminado: receivedMqttMessage: Pair<String, String>?,
+    // Eliminado: onPublishCommand: (String, String) -> Unit,
+    onSettingsClick: () -> Unit // Callback para el botón de ajustes
 ) {
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Bienvenido a ReptilTrack", color = MaterialTheme.colorScheme.onPrimary) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent), // Fondo transparente
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
                 actions = {
-                    IconButton(onClick = { /* TODO: Acción para añadir un terrario */ }) {
-                        Icon(Icons.Default.Add, contentDescription = "Añadir Terrario", tint = MaterialTheme.colorScheme.onPrimary)
+                    // Botón de ajustes (icono de engranaje)
+                    IconButton(onClick = onSettingsClick) { // Llama al callback de ajustes
+                        Icon(Icons.Default.Settings, contentDescription = "Ajustes", tint = MaterialTheme.colorScheme.onPrimary)
                     }
                 }
             )
@@ -77,10 +82,10 @@ fun HomeScreen(
         Box(modifier = Modifier.fillMaxSize()) {
             // Fondo de imagen
             Image(
-                painter = painterResource(id = R.drawable.background),
+                painter = painterResource(id = R.drawable.background), // Asegúrate de tener esta imagen en tus drawables
                 contentDescription = "Fondo de jungla para terrarios",
                 modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop // Escala la imagen para cubrir el Box
+                contentScale = ContentScale.Crop
             )
             // Capa de superposición para mejorar la legibilidad del texto
             Box(
@@ -98,21 +103,20 @@ fun HomeScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(paddingValues) // Aplica el padding de la barra superior
+                    .padding(paddingValues)
             ) {
-                // Título principal y "X dispositivos"
+                // Título principal "ReptilTrack" y "X dispositivos"
                 Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                     Text(
                         text = "ReptilTrack",
                         style = MaterialTheme.typography.headlineLarge,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White // Texto blanco para contraste con el fondo oscuro
+                        color = Color.White
                     )
-                    // CORREGIDO: Acceso seguro al tamaño de la lista de terrarios
                     val numberOfDevices = if (uiState is HomeUiState.Success) {
                         uiState.terrariums.size
                     } else {
-                        0 // O cualquier valor por defecto cuando no está en estado Success
+                        0
                     }
                     Text(
                         text = "$numberOfDevices dispositivos",
@@ -121,7 +125,7 @@ fun HomeScreen(
                     )
                 }
 
-                // Sección de estado de MQTT
+                // Sección de estado de MQTT (simplificada)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -140,14 +144,7 @@ fun HomeScreen(
                         fontWeight = FontWeight.Bold
                     )
                 }
-                receivedMqttMessage?.let { (topic, message) ->
-                    Text(
-                        text = "Último mensaje: $topic -> $message",
-                        color = Color.White.copy(alpha = 0.8f),
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-                    )
-                }
+                // Eliminado: receivedMqttMessage?.let { ... }
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
@@ -186,10 +183,7 @@ fun HomeScreen(
                                 items(uiState.terrariums) { terrarium ->
                                     TerrariumCard(
                                         terrarium = terrarium,
-                                        onClick = { /* No hay navegación de detalle por ahora, solo log */
-                                            Log.d("HomeScreen", "Clicked on terrarium: ${terrarium.name}")
-                                            // onTerrariumClick(terrarium.id) // Descomentar cuando la pantalla de detalle esté lista
-                                        }
+                                        onClick = onTerrariumClick
                                     )
                                 }
                             }

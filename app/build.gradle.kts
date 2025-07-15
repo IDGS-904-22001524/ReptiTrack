@@ -66,7 +66,7 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
-
+    implementation(libs.datastore.preferences)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)
@@ -77,6 +77,7 @@ dependencies {
 
 implementation(libs.hilt.android)
     implementation(libs.androidx.ui.text.google.fonts)
+    implementation(libs.androidx.animation.core.lint)
     ksp(libs.hilt.compiler)
     ksp(libs.androidx.hilt.compiler)
     implementation(libs.hilt.navigation.compose)

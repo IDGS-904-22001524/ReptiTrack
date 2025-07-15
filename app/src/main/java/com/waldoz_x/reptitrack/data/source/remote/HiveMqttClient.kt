@@ -25,15 +25,13 @@ class HiveMqttClient @Inject constructor() {
     private val TAG = "HiveMqttClient"
 
     // URL y puerto de tu clúster HiveMQ
-    // ¡IMPORTANTE! VERIFICA ESTA URL Y PUERTO.
-    // Debe ser 'ssl://' para el puerto 8883 (TLS/SSL)
-    // O 'tcp://' para el puerto 1883 (sin cifrado, no recomendado para producción)
-    // Credenciales actualizadas según las imágenes proporcionadas
-    private val BROKER_URI = "ssl://bda98a85f86a454891057738db2eb24c.s1.eu.hivemq.cloud:8883"
+    private val BROKER_URI = "ssl://bde98a85f86a454891057738db2eb24c.s1.eu.hivemq.cloud:8883"
 
-    // ¡CREDENCIALES REALES DE HIVE MQ CONFIGURADAS!
-    private val USERNAME = "dev_Android"
-    private val PASSWORD = "REXvALDO23"
+    // ¡Credenciales predeterminadas! Estas se usarán si no se proporcionan credenciales
+    // al llamar a la función connect().
+    // Cambiado a 'internal' para que MqttSettingsViewModel pueda acceder a ellas
+    internal val DEFAULT_USERNAME = "dev_Android"
+    internal val DEFAULT_PASSWORD = "REXvALDO23" // Ahora accesible como String
 
     private lateinit var mqttClient: MqttClient
 
@@ -82,7 +80,9 @@ class HiveMqttClient @Inject constructor() {
     }
 
     // Función para conectar al broker MQTT
-    suspend fun connect() {
+    // Ahora acepta username y password como parámetros opcionales.
+    // Si no se proporcionan, usará las credenciales predeterminadas.
+    suspend fun connect(username: String? = null, password: String? = null) {
         if (mqttClient.isConnected) {
             Log.d(TAG, "Cliente ya está conectado.")
             return
@@ -92,10 +92,18 @@ class HiveMqttClient @Inject constructor() {
                 isCleanSession = true // Iniciar una nueva sesión limpia
                 connectionTimeout = 30 // Segundos
                 keepAliveInterval = 30 // Segundos
-                // Solo añadir credenciales si se han configurado
-                // Las credenciales ya están fijas, así que esta condición siempre será verdadera
-                userName = USERNAME
-                password = PASSWORD.toCharArray()
+
+                // Determina las credenciales a usar: las proporcionadas o las predeterminadas
+                val finalUsername = username ?: DEFAULT_USERNAME
+                val finalPassword = password ?: DEFAULT_PASSWORD
+
+                // Asigna las credenciales solo si no están vacías
+                if (finalUsername.isNotBlank()) {
+                    this.userName = finalUsername
+                }
+                if (finalPassword.isNotBlank()) {
+                    this.password = finalPassword.toCharArray()
+                }
 
                 // Configuración SSL/TLS (para puerto 8883)
                 // Paho maneja SSL por defecto si el URI es "ssl://"
@@ -111,9 +119,11 @@ class HiveMqttClient @Inject constructor() {
                 }
             }
             Log.d(TAG, "Conexión MQTT exitosa!")
+            _isConnected.value = true // Actualiza el estado a conectado
         } catch (e: Exception) {
             Log.e(TAG, "Error al conectar al broker MQTT: ${e.message}", e)
-            _isConnected.value = false
+            _isConnected.value = false // Asegura que el estado sea desconectado
+            // No se hace 'throw e' aquí para evitar que la aplicación crashee.
         }
     }
 
