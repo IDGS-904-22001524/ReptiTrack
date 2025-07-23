@@ -8,6 +8,7 @@ plugins {
     // Plugins para Dagger Hilt
     alias(libs.plugins.hilt.android)
     alias(libs.plugins.ksp)
+    id("org.jetbrains.kotlin.kapt")
 
     // Plugin de Google Services para Firebase
     id("com.google.gms.google-services")
@@ -15,11 +16,11 @@ plugins {
 
 android {
     namespace = "com.waldoz_x.reptitrack"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.waldoz_x.reptitrack"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
@@ -43,8 +44,10 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
-    kotlinOptions {
-        jvmTarget = "11"
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+        }
     }
     buildFeatures {
         compose = true
@@ -75,18 +78,18 @@ dependencies {
     implementation(libs.androidx.material3)
 
 
-implementation(libs.hilt.android)
+    implementation(libs.hilt.android)
+    kapt(libs.hilt.compiler)
+    implementation(libs.hilt.navigation.compose)
     implementation(libs.androidx.ui.text.google.fonts)
     implementation(libs.androidx.animation.core.lint)
-    ksp(libs.hilt.compiler)
-    ksp(libs.androidx.hilt.compiler)
-    implementation(libs.hilt.navigation.compose)
     implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.auth.ktx)
     implementation(libs.firebase.firestore.ktx)
-    implementation(libs.firebase.database.ktx)
+    implementation(libs.firebase.analytics)
+
     implementation(libs.paho.mqtt.client)
     implementation(libs.coil.compose)
-
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
