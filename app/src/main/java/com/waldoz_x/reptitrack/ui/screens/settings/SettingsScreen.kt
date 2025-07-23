@@ -1,4 +1,3 @@
-// com.waldoz_x.reptitrack.ui.screens.settings/SettingsScreen.kt
 package com.waldoz_x.reptitrack.ui.screens.settings
 
 import androidx.compose.foundation.background
@@ -14,12 +13,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
@@ -38,6 +33,8 @@ fun SettingsScreen(
     navigateToTimeZoneSelection: () -> Unit,
     navigateToCountryRegionSelection: () -> Unit,
     navigateToMqttSettings: () -> Unit,
+    // ¡NUEVO! Añade este parámetro para la navegación temporal al detalle del terrario
+    navigateToTerrariumDetailPlaceholder: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
@@ -94,6 +91,17 @@ fun SettingsScreen(
                 )
             }
 
+            SettingsSection(title = "Desarrollo (Temporal)") {
+                SettingsCard {
+                    SettingsItem(
+                        icon = painterResource(id = R.drawable.ic_outline_laptop_windows_24),
+                        text = "Ver Detalle Terrario (DEV)",
+                        onClick = navigateToTerrariumDetailPlaceholder, // Navega a la nueva pantalla
+                        trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Ir a") }
+                    )
+                }
+            }
+            // --- FIN NUEVA SECCIÓN ---
 
             // Sección de Compartir
             SettingsSection(title = "Compartir") {
@@ -104,7 +112,7 @@ fun SettingsScreen(
                         onClick = { /* TODO: Implementar compartir */ },
                         trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Ir a") }
                     )
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp)) // ¡ACTUALIZADO!
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                     SettingsItem(
                         icon = painterResource(id = R.drawable.ic_baseline_qr_code_24),
                         text = "Mi código QR",
@@ -128,7 +136,7 @@ fun SettingsScreen(
                             )
                         }
                     )
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp)) // ¡ACTUALIZADO!
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                     SettingsItem(
                         icon = painterResource(id = R.drawable.ic_baseline_wifi_24),
                         text = "Actualizar plug-ins vía Wi-Fi",
@@ -194,21 +202,21 @@ fun SettingsScreen(
                         onClick = { /* TODO: Implementar búsqueda de actualizaciones */ },
                         trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Ir a") }
                     )
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp)) // ¡ACTUALIZADO!
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                     SettingsItem(
                         icon = painterResource(id = R.drawable.ic_baseline_smartphone_24),
                         text = "Actualizaciones del dispositivo",
                         onClick = { /* TODO: Implementar actualizaciones del dispositivo */ },
                         trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Ir a") }
                     )
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp)) // ¡ACTUALIZADO!
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                     SettingsItem(
                         icon = painterResource(id = R.drawable.ic_baseline_help_24),
                         text = "Ayuda",
                         onClick = { /* TODO: Implementar ayuda */ },
                         trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Ir a") }
                     )
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp)) // ¡ACTUALIZADO!
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                     SettingsItem(
                         icon = painterResource(id = R.drawable.ic_baseline_info_24),
                         text = "Acerca de",
@@ -305,7 +313,9 @@ fun SettingsScreenPreview() {
             onBackClick = {},
             navigateToTimeZoneSelection = {},
             navigateToCountryRegionSelection = {},
-            navigateToMqttSettings = {}
+            navigateToMqttSettings = {},
+            // ¡NUEVO! Añade este parámetro al Preview también
+            navigateToTerrariumDetailPlaceholder = {}
         )
     }
 }

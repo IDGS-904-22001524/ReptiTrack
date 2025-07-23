@@ -1,18 +1,18 @@
 # gradle/libs.versions.toml
 
 [versions]
-agp = "8.10.1"
-kotlin = "2.0.0" # Manteniendo Kotlin 2.0.0 para compatibilidad con KSP 2.0.0-1.0.21
+agp = "8.11.1"
+kotlin = "2.0.0"
 coreKtx = "1.16.0"
 junit = "4.13.2"
 junitVersion = "1.2.1"
 espressoCore = "3.6.1"
-lifecycleRuntimeKtx = "2.9.1"
+lifecycleRuntimeKtx = "2.9.2"
 activityCompose = "1.10.1"
-composeBom = "2024.09.00"
+composeBom = "2025.07.00"
 
 # Dagger Hilt
-hiltAndroid = "2.48"
+hiltAndroid = "2.57"
 hiltCompiler = "1.2.0"
 
 # KSP (Kotlin Symbol Processing)
@@ -20,11 +20,11 @@ ksp = "2.0.0-1.0.21"
 
 # Firebase BOM gestiona las versiones de las librerías de Firebase.
 # No necesitamos una referencia de versión para firebaseDatabase aquí.
-firebaseBom = "33.1.0"
+firebaseBom = "33.16.0"
 pahoMqttClient = "1.2.5"
-coilCompose = "2.6.0"
+coilCompose = "2.7.0"
 uiTextGoogleFonts = "1.8.3"
-datastore = "1.0.0"
+datastore = "1.1.7"
 animationCoreLint = "1.8.3"
 
 [libraries]
@@ -49,24 +49,18 @@ datastore-preferences = { module = "androidx.datastore:datastore-preferences", v
 # Dagger Hilt
 hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hiltAndroid" }
 hilt-compiler = { group = "com.google.dagger", name = "hilt-compiler", version.ref = "hiltAndroid" }
-hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navigation-compose", version.ref = "hiltCompiler" }
-androidx-hilt-compiler = { group = "androidx.hilt", name = "hilt-compiler", version.ref = "hiltCompiler" }
 paho-mqtt-client = { group = "org.eclipse.paho", name = "org.eclipse.paho.client.mqttv3", version.ref = "pahoMqttClient" }
 
 # Firebase (usa el BOM para gestionar versiones)
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
-firebase-firestore-ktx = { group = "com.google.firebase", name = "firebase-firestore-ktx" }
 # CORREGIDO: Usar la versión KTX y dejar que el BOM gestione la versión
-firebase-database-ktx = { group = "com.google.firebase", name = "firebase-database-ktx" }
 androidx-ui-text-google-fonts = { group = "androidx.compose.ui", name = "ui-text-google-fonts", version.ref = "uiTextGoogleFonts" }
 androidx-animation-core-lint = { group = "androidx.compose.animation", name = "animation-core-lint", version.ref = "animationCoreLint" }
-# ELIMINADO: firebase-database = { group = "com.google.firebase", name = "firebase-database", version.ref = "firebaseDatabase" }
-# ELIMINADO: androidx-navigation-compose-jvmstubs (esto causaba el error de clases duplicadas)
+firebase-auth-ktx = { group = "com.google.firebase", name = "firebase-auth-ktx" }
+firebase-firestore-ktx = { group = "com.google.firebase", name = "firebase-firestore-ktx" }
+firebase-analytics = { group = "com.google.firebase", name = "firebase-analytics" }
+hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navigation-compose", version = "1.2.0" }
 
-# Si necesitas navigation-compose, el BOM ya lo trae.
-# Si por alguna razón necesitas referenciarlo explícitamente (no debería ser necesario si el BOM funciona bien),
-# lo harías así (pero sin el .jvmstubs):
-# androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose" }
 
 
 [plugins]
