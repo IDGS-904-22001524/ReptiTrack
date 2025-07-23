@@ -1,6 +1,7 @@
 // com.waldoz_x.reptitrack.di/AppModule.kt
 package com.waldoz_x.reptitrack.di
 
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.waldoz_x.reptitrack.data.source.remote.HiveMqttClient
 import com.waldoz_x.reptitrack.data.source.remote.TerrariumFirebaseDataSource
@@ -43,3 +44,11 @@ object DataSourceModule {
     }
 }
 
+// Módulo para proveer la instancia de FirebaseAuth.
+@Module
+@InstallIn(SingletonComponent::class)
+object AppModule {
+    @Provides
+    @Singleton
+    fun provideFirebaseAuth(): FirebaseAuth = FirebaseAuth.getInstance()
+}

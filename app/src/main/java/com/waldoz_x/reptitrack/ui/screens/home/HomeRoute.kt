@@ -17,6 +17,8 @@ fun HomeRoutes( // Mantengo HomeRoute, asumiendo que ya resolviste el conflicto 
     val uiState by viewModel.uiState.collectAsState()
     val isMqttConnected by viewModel.mqttConnectionState.collectAsState()
     val receivedMqttMessage by viewModel.mqttReceivedMessages.collectAsState()
+    val isFirebaseConnected by viewModel.firebaseConnectionState.collectAsState()
+    val currentUserData by viewModel.currentUserData.collectAsState()
 
     // Llama al Composable principal de la pantalla, pasando el estado y los callbacks
     HomeScreen(
@@ -24,6 +26,8 @@ fun HomeRoutes( // Mantengo HomeRoute, asumiendo que ya resolviste el conflicto 
         onTerrariumClick = navigateToTerrariumDetail,
         onRetryClick = viewModel::loadTerrariums,
         isMqttConnected = isMqttConnected,
+        isFirebaseConnected = isFirebaseConnected,
+        currentUserData = currentUserData,
         onSettingsClick = navigateToSettings // ¡NUEVO! Pasa el callback de ajustes
     )
 }
