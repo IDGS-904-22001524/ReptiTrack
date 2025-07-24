@@ -1,5 +1,3 @@
-// app/build.gradle.kts (Module: app)
-
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -8,6 +6,7 @@ plugins {
     // Plugins para Dagger Hilt
     alias(libs.plugins.hilt.android)
     alias(libs.plugins.ksp)
+    kotlin("kapt") // Agregado para habilitar kapt
 
     // Plugin de Google Services para Firebase
     id("com.google.gms.google-services")
@@ -62,7 +61,11 @@ android {
 }
 
 dependencies {
-
+    implementation("com.github.espressif:esp-idf-provisioning-android:lib-2.2.5")
+    implementation("androidx.navigation:navigation-compose:2.9.1")
+    implementation("com.airbnb.android:lottie-compose:6.3.0")
+    implementation("org.greenrobot:eventbus:3.3.1")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.4.0")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
@@ -74,19 +77,19 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
 
+    implementation(libs.hilt.android)
+    kapt(libs.hilt.compiler)
+    implementation(libs.hilt.navigation.compose)
 
-implementation(libs.hilt.android)
     implementation(libs.androidx.ui.text.google.fonts)
     implementation(libs.androidx.animation.core.lint)
-    ksp(libs.hilt.compiler)
-    ksp(libs.androidx.hilt.compiler)
-    implementation(libs.hilt.navigation.compose)
     implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.auth.ktx)
     implementation(libs.firebase.firestore.ktx)
-    implementation(libs.firebase.database.ktx)
+    implementation(libs.firebase.analytics)
+
     implementation(libs.paho.mqtt.client)
     implementation(libs.coil.compose)
-
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

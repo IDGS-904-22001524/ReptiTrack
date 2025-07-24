@@ -31,7 +31,8 @@ import com.waldoz_x.reptitrack.ui.components.TerrariumCard
 @Composable
 fun HomeRoute(
     navigateToTerrariumDetail: (String) -> Unit,
-    navigateToSettings: () -> Unit, // ¡NUEVO! Callback para navegar a ajustes
+    navigateToSettings: () -> Unit, // Callback para navegar a ajustes
+    onAddTerrarium: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -45,7 +46,8 @@ fun HomeRoute(
         isMqttConnected = isMqttConnected,
         // Eliminado: receivedMqttMessage = receivedMqttMessage,
         // Eliminado: onPublishCommand = viewModel::publishMqttCommand,
-        onSettingsClick = navigateToSettings // Pasa el callback de ajustes
+        onSettingsClick = navigateToSettings, // Pasa el callback de ajustes
+        onAddTerrariumClick = onAddTerrarium
     )
 }
 
@@ -58,7 +60,8 @@ fun HomeScreen(
     isMqttConnected: Boolean,
     // Eliminado: receivedMqttMessage: Pair<String, String>?,
     // Eliminado: onPublishCommand: (String, String) -> Unit,
-    onSettingsClick: () -> Unit // Callback para el botón de ajustes
+    onSettingsClick: () -> Unit, // Callback para el botón de ajustes
+    onAddTerrariumClick: () -> Unit
 ) {
     Scaffold(
         topBar = {
@@ -74,7 +77,7 @@ fun HomeScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { /* TODO: Acción para añadir un terrario */ }) {
+            FloatingActionButton(onClick = onAddTerrariumClick) { // Cambiado aquí
                 Icon(Icons.Default.Add, contentDescription = "Añadir Terrario")
             }
         }

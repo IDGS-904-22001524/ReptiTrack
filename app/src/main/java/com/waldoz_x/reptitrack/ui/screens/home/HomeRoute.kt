@@ -11,6 +11,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 fun HomeRoutes( // Mantengo HomeRoute, asumiendo que ya resolviste el conflicto de nombres
     navigateToTerrariumDetail: (String) -> Unit, // Callback para navegar al detalle del terrario
     navigateToSettings: () -> Unit, // ¡NUEVO! Callback para navegar a ajustes
+    onAddTerrarium: () -> Unit, // CAMBIA ESTE NOMBRE
     viewModel: HomeViewModel = hiltViewModel() // Inyecta el HomeViewModel
 ) {
     // Recoge el estado de la UI del ViewModel como un State
@@ -24,6 +25,7 @@ fun HomeRoutes( // Mantengo HomeRoute, asumiendo que ya resolviste el conflicto 
         onTerrariumClick = navigateToTerrariumDetail,
         onRetryClick = viewModel::loadTerrariums,
         isMqttConnected = isMqttConnected,
-        onSettingsClick = navigateToSettings // ¡NUEVO! Pasa el callback de ajustes
+        onSettingsClick = navigateToSettings, // ¡NUEVO! Pasa el callback de ajustes
+        onAddTerrariumClick = onAddTerrarium
     )
 }
