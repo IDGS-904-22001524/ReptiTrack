@@ -13,7 +13,12 @@
           "package_name": "com.waldoz_x.reptitrack"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "312411567819-nl4v38jf8hiq22r3u0tlv0m9jsg67uks.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyA_BUw3kpkVsMf6bjSFTwi__f5zoCWruZo"
@@ -21,7 +26,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "312411567819-nl4v38jf8hiq22r3u0tlv0m9jsg67uks.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

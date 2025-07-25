@@ -1,4 +1,3 @@
-// com.waldoz_x.reptitrack.ui.screens.home/HomeScreen.kt
 package com.waldoz_x.reptitrack.ui.screens.home
 
 import android.util.Log
@@ -9,7 +8,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Settings // Importa el icono de ajustes
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -23,7 +22,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.waldoz_x.reptitrack.domain.model.Terrarium
 import com.waldoz_x.reptitrack.R
 import com.waldoz_x.reptitrack.ui.components.TerrariumCard
 
@@ -31,22 +29,23 @@ import com.waldoz_x.reptitrack.ui.components.TerrariumCard
 @Composable
 fun HomeRoute(
     navigateToTerrariumDetail: (String) -> Unit,
-    navigateToSettings: () -> Unit, // Callback para navegar a ajustes
+    navigateToSettings: () -> Unit,
     onAddTerrarium: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val isMqttConnected by viewModel.mqttConnectionState.collectAsState()
-    // Eliminado: val receivedMqttMessage by viewModel.mqttReceivedMessages.collectAsState()
+    val isFirebaseConnected by viewModel.firebaseConnectionState.collectAsState()
+    val currentUserData by viewModel.currentUserData.collectAsState()
 
     HomeScreen(
         uiState = uiState,
         onTerrariumClick = navigateToTerrariumDetail,
         onRetryClick = viewModel::loadTerrariums,
         isMqttConnected = isMqttConnected,
-        // Eliminado: receivedMqttMessage = receivedMqttMessage,
-        // Eliminado: onPublishCommand = viewModel::publishMqttCommand,
-        onSettingsClick = navigateToSettings, // Pasa el callback de ajustes
+        isFirebaseConnected = isFirebaseConnected,
+        currentUserData = currentUserData,
+        onSettingsClick = navigateToSettings,
         onAddTerrariumClick = onAddTerrarium
     )
 }
@@ -58,9 +57,9 @@ fun HomeScreen(
     onTerrariumClick: (String) -> Unit,
     onRetryClick: () -> Unit,
     isMqttConnected: Boolean,
-    // Eliminado: receivedMqttMessage: Pair<String, String>?,
-    // Eliminado: onPublishCommand: (String, String) -> Unit,
-    onSettingsClick: () -> Unit, // Callback para el botón de ajustes
+    isFirebaseConnected: Boolean,
+    currentUserData: UserData?,
+    onSettingsClick: () -> Unit,
     onAddTerrariumClick: () -> Unit
 ) {
     Scaffold(
@@ -69,15 +68,14 @@ fun HomeScreen(
                 title = { Text("Bienvenido a ReptilTrack", color = MaterialTheme.colorScheme.onPrimary) },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
                 actions = {
-                    // Botón de ajustes (icono de engranaje)
-                    IconButton(onClick = onSettingsClick) { // Llama al callback de ajustes
+                    IconButton(onClick = onSettingsClick) {
                         Icon(Icons.Default.Settings, contentDescription = "Ajustes", tint = MaterialTheme.colorScheme.onPrimary)
                     }
                 }
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = onAddTerrariumClick) { // Cambiado aquí
+            FloatingActionButton(onClick = onAddTerrariumClick) {
                 Icon(Icons.Default.Add, contentDescription = "Añadir Terrario")
             }
         }
@@ -85,7 +83,7 @@ fun HomeScreen(
         Box(modifier = Modifier.fillMaxSize()) {
             // Fondo de imagen
             Image(
-                painter = painterResource(id = R.drawable.background), // Asegúrate de tener esta imagen en tus drawables
+                painter = painterResource(id = R.drawable.jungle_background),
                 contentDescription = "Fondo de jungla para terrarios",
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
@@ -128,11 +126,22 @@ fun HomeScreen(
                     )
                 }
 
-                // Sección de estado de MQTT (simplificada)
+                // Sección de información del usuario
+                currentUserData?.let { userData ->
+                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                        Text(
+                            text = "Usuario: ${if (userData.isGuest) "Invitado (${userData.id.take(6)}...)" else userData.email ?: userData.id}",
+                            color = Color.White,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+
+                // Sección de estado de MQTT
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
@@ -147,7 +156,26 @@ fun HomeScreen(
                         fontWeight = FontWeight.Bold
                     )
                 }
-                // Eliminado: receivedMqttMessage?.let { ... }
+
+                // Sección de estado de Firebase
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Firebase Conectado: ",
+                        color = Color.White,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(
+                        text = if (isFirebaseConnected) "Sí" else "No",
+                        color = if (isFirebaseConnected) Color.Green else Color.Red,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
@@ -167,6 +195,7 @@ fun HomeScreen(
                             CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                         }
                     }
+
                     is HomeUiState.Success -> {
                         if (uiState.terrariums.isEmpty()) {
                             Box(
@@ -192,6 +221,7 @@ fun HomeScreen(
                             }
                         }
                     }
+
                     is HomeUiState.Error -> {
                         Box(
                             modifier = Modifier.fillMaxSize(),

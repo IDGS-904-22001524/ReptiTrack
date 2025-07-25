@@ -1,4 +1,3 @@
-// com.waldoz_x.reptitrack.data.source.remote/HiveMqttClient.kt
 package com.waldoz_x.reptitrack.data.source.remote
 
 import android.util.Log
@@ -24,119 +23,125 @@ class HiveMqttClient @Inject constructor() {
 
     private val TAG = "HiveMqttClient"
 
-    // URL y puerto de tu clúster HiveMQ
-    private val BROKER_URI = "ssl://bde98a85f86a454891057738db2eb24c.s1.eu.hivemq.cloud:8883"
-
-    // ¡Credenciales predeterminadas! Estas se usarán si no se proporcionan credenciales
-    // al llamar a la función connect().
-    // Cambiado a 'internal' para que MqttSettingsViewModel pueda acceder a ellas
+    private val BROKER_URI = "ssl://bda98a85f86a454891057738db2eb24c.s1.eu.hivemq.cloud:8883"
     internal val DEFAULT_USERNAME = "dev_Android"
-    internal val DEFAULT_PASSWORD = "REXvALDO23" // Ahora accesible como String
+    internal val DEFAULT_PASSWORD = "REXvALDO23"
 
-    private lateinit var mqttClient: MqttClient
+    // Se inicializa como 'lateinit var' pero la inicialización real de MqttClient se moverá a connect()
+    // para evitar hacer trabajo pesado en el constructor o el bloque init.
+    private var mqttClient: MqttClient? = null // Hacerlo nullable para inicialización tardía
 
-    // Estado de conexión MQTT
     private val _isConnected = MutableStateFlow(false)
     val isConnected: StateFlow<Boolean> = _isConnected
 
-    // Flow para emitir mensajes recibidos (topic, payload)
     private val _receivedMessages = MutableStateFlow<Pair<String, String>?>(null)
     val receivedMessages: StateFlow<Pair<String, String>?> = _receivedMessages
 
+    // No hay bloque 'init' que haga trabajo pesado. La configuración se hace al conectar.
 
-    init {
-        try {
-            val clientId = UUID.randomUUID().toString()
-            mqttClient = MqttClient(BROKER_URI, clientId, MemoryPersistence())
-
-            // Configura el callback para manejar eventos de conexión y mensajes
-            mqttClient.setCallback(object : MqttCallbackExtended {
-                override fun connectComplete(reconnect: Boolean, serverURI: String) {
-                    Log.d(TAG, "Cliente MQTT conectado: $serverURI (reconnect: $reconnect)")
-                    _isConnected.value = true
-                    // Puedes suscribirte a tópicos aquí automáticamente después de reconectar
-                    // Por ejemplo:
-                    // subscribeToTopic("sensors/+/data")
-                }
-
-                override fun connectionLost(cause: Throwable?) {
-                    Log.e(TAG, "Conexión MQTT perdida: ${cause?.message}", cause)
-                    _isConnected.value = false
-                }
-
-                override fun messageArrived(topic: String, message: MqttMessage) {
-                    val payload = String(message.payload)
-                    Log.d(TAG, "Mensaje recibido en $topic: $payload")
-                    _receivedMessages.value = Pair(topic, payload)
-                }
-
-                override fun deliveryComplete(token: IMqttDeliveryToken) {
-                    Log.d(TAG, "Entrega de mensaje completa: ${token.messageId}")
-                }
-            })
-        } catch (e: MqttException) {
-            Log.e(TAG, "Error al inicializar MqttClient: ${e.message}", e)
-        }
-    }
-
-    // Función para conectar al broker MQTT
-    // Ahora acepta username y password como parámetros opcionales.
-    // Si no se proporcionan, usará las credenciales predeterminadas.
+    /**
+     * Inicializa el cliente MQTT si no ha sido inicializado y luego intenta conectar.
+     * Se puede llamar varias veces; solo inicializará el cliente una vez.
+     *
+     * @param username Nombre de usuario opcional para la conexión MQTT.
+     * @param password Contraseña opcional para la conexión MQTT.
+     */
     suspend fun connect(username: String? = null, password: String? = null) {
-        if (mqttClient.isConnected) {
+        if (_isConnected.value) {
             Log.d(TAG, "Cliente ya está conectado.")
             return
         }
+
+        // Inicializa el MqttClient solo si es nulo (primera vez o después de un reinicio)
+        if (mqttClient == null) {
+            try {
+                val clientId = UUID.randomUUID().toString()
+                mqttClient = MqttClient(BROKER_URI, clientId, MemoryPersistence())
+                setupMqttCallback() // Configura el callback una vez
+                Log.d(TAG, "MqttClient inicializado.")
+            } catch (e: MqttException) {
+                Log.e(TAG, "Error al inicializar MqttClient: ${e.message}", e)
+                _isConnected.value = false
+                return // No podemos continuar sin un cliente inicializado
+            }
+        }
+
         try {
             val options = MqttConnectOptions().apply {
-                isCleanSession = true // Iniciar una nueva sesión limpia
-                connectionTimeout = 30 // Segundos
-                keepAliveInterval = 30 // Segundos
+                isCleanSession = true
+                connectionTimeout = 30
+                keepAliveInterval = 30
 
-                // Determina las credenciales a usar: las proporcionadas o las predeterminadas
                 val finalUsername = username ?: DEFAULT_USERNAME
                 val finalPassword = password ?: DEFAULT_PASSWORD
 
-                // Asigna las credenciales solo si no están vacías
                 if (finalUsername.isNotBlank()) {
                     this.userName = finalUsername
                 }
                 if (finalPassword.isNotBlank()) {
                     this.password = finalPassword.toCharArray()
                 }
-
-                // Configuración SSL/TLS (para puerto 8883)
-                // Paho maneja SSL por defecto si el URI es "ssl://"
-                // Si necesitas configurar un TrustStore/KeyStore específico, se haría aquí.
             }
+
+            // Asegurarse de que el cliente no sea nulo antes de usarlo
+            val client = mqttClient ?: throw IllegalStateException("MqttClient no inicializado.")
 
             suspendCancellableCoroutine<Unit> { continuation ->
                 try {
-                    mqttClient.connect(options) // Llamada síncrona
-                    continuation.resume(Unit) // Reanuda la coroutine si la conexión es exitosa
+                    client.connect(options)
+                    continuation.resume(Unit)
                 } catch (e: MqttException) {
-                    continuation.resumeWithException(e) // Reanuda con excepción si falla
+                    continuation.resumeWithException(e)
                 }
             }
             Log.d(TAG, "Conexión MQTT exitosa!")
-            _isConnected.value = true // Actualiza el estado a conectado
+            _isConnected.value = true
         } catch (e: Exception) {
             Log.e(TAG, "Error al conectar al broker MQTT: ${e.message}", e)
-            _isConnected.value = false // Asegura que el estado sea desconectado
-            // No se hace 'throw e' aquí para evitar que la aplicación crashee.
+            _isConnected.value = false
         }
     }
 
-    // Función para desconectar del broker MQTT
+    /**
+     * Configura el MqttCallback para el cliente. Se llama solo una vez cuando el cliente es inicializado.
+     */
+    private fun setupMqttCallback() {
+        mqttClient?.setCallback(object : MqttCallbackExtended {
+            override fun connectComplete(reconnect: Boolean, serverURI: String) {
+                Log.d(TAG, "Cliente MQTT conectado: $serverURI (reconnect: $reconnect)")
+                _isConnected.value = true
+            }
+
+            override fun connectionLost(cause: Throwable?) {
+                Log.e(TAG, "Conexión MQTT perdida: ${cause?.message}", cause)
+                _isConnected.value = false
+                // Opcional: Reintentar la conexión automáticamente aquí o notificar a la UI para que reintente.
+            }
+
+            override fun messageArrived(topic: String, message: MqttMessage) {
+                val payload = String(message.payload)
+                Log.d(TAG, "Mensaje recibido en $topic: $payload")
+                _receivedMessages.value = Pair(topic, payload)
+            }
+
+            override fun deliveryComplete(token: IMqttDeliveryToken) {
+                Log.d(TAG, "Entrega de mensaje completa: ${token.messageId}")
+            }
+        })
+    }
+
     suspend fun disconnect() {
-        if (!mqttClient.isConnected) {
-            Log.d(TAG, "Cliente ya está desconectado.")
+        if (!_isConnected.value || mqttClient == null) {
+            Log.d(TAG, "Cliente ya está desconectado o no inicializado.")
             return
         }
         try {
+            // Asegurarse de que el cliente no sea nulo antes de usarlo
+            val client = mqttClient ?: return
+
             suspendCancellableCoroutine<Unit> { continuation ->
                 try {
-                    mqttClient.disconnect() // Llamada síncrona
+                    client.disconnect()
                     continuation.resume(Unit)
                 } catch (e: MqttException) {
                     continuation.resumeWithException(e)
@@ -144,21 +149,22 @@ class HiveMqttClient @Inject constructor() {
             }
             Log.d(TAG, "Desconexión MQTT exitosa!")
             _isConnected.value = false
+            mqttClient = null // Libera el cliente para permitir una nueva inicialización si es necesario
         } catch (e: Exception) {
             Log.e(TAG, "Error al desconectar del broker MQTT: ${e.message}", e)
         }
     }
 
-    // Función para suscribirse a un tópico
-    suspend fun subscribeToTopic(topic: String, qos: Int = 1) { // QoS 1 = AT_LEAST_ONCE
-        if (!mqttClient.isConnected) {
-            Log.e(TAG, "No se puede suscribir: Cliente no conectado.")
+    suspend fun subscribeToTopic(topic: String, qos: Int = 1) {
+        if (!_isConnected.value || mqttClient == null) {
+            Log.e(TAG, "No se puede suscribir: Cliente no conectado o no inicializado.")
             return
         }
         try {
+            val client = mqttClient ?: return
             suspendCancellableCoroutine<Unit> { continuation ->
                 try {
-                    mqttClient.subscribe(topic, qos) // Llamada síncrona
+                    client.subscribe(topic, qos)
                     continuation.resume(Unit)
                 } catch (e: MqttException) {
                     continuation.resumeWithException(e)
@@ -170,16 +176,16 @@ class HiveMqttClient @Inject constructor() {
         }
     }
 
-    // Función para anular la suscripción a un tópico
     suspend fun unsubscribeFromTopic(topic: String) {
-        if (!mqttClient.isConnected) {
-            Log.e(TAG, "No se puede anular la suscripción: Cliente no conectado.")
+        if (!_isConnected.value || mqttClient == null) {
+            Log.e(TAG, "No se puede anular la suscripción: Cliente no conectado o no inicializado.")
             return
         }
         try {
+            val client = mqttClient ?: return
             suspendCancellableCoroutine<Unit> { continuation ->
                 try {
-                    mqttClient.unsubscribe(topic) // Llamada síncrona
+                    client.unsubscribe(topic)
                     continuation.resume(Unit)
                 } catch (e: MqttException) {
                     continuation.resumeWithException(e)
@@ -191,10 +197,9 @@ class HiveMqttClient @Inject constructor() {
         }
     }
 
-    // Función para publicar un mensaje en un tópico
     suspend fun publishMessage(topic: String, message: String, qos: Int = 1, retained: Boolean = false) {
-        if (!mqttClient.isConnected) {
-            Log.e(TAG, "No se puede publicar: Cliente no conectado.")
+        if (!_isConnected.value || mqttClient == null) {
+            Log.e(TAG, "No se puede publicar: Cliente no conectado o no inicializado.")
             return
         }
         try {
@@ -202,9 +207,10 @@ class HiveMqttClient @Inject constructor() {
                 this.qos = qos
                 this.isRetained = retained
             }
+            val client = mqttClient ?: return
             suspendCancellableCoroutine<Unit> { continuation ->
                 try {
-                    mqttClient.publish(topic, mqttMessage) // Llamada síncrona
+                    client.publish(topic, mqttMessage)
                     continuation.resume(Unit)
                 } catch (e: MqttException) {
                     continuation.resumeWithException(e)

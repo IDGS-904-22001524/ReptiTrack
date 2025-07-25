@@ -1,23 +1,22 @@
-// com.waldoz_x.reptitrack.navigation/AppNavHost.kt
 package com.waldoz_x.reptitrack.navigation
 
 import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
 import com.waldoz_x.reptitrack.presentation.wifi.WiFiScanScreen
 import com.waldoz_x.reptitrack.ui.screens.home.HomeRoute
 import com.waldoz_x.reptitrack.ui.screens.settings.SettingsScreen
 import com.waldoz_x.reptitrack.ui.screens.timezone.TimeZoneSelectionScreen
 import com.waldoz_x.reptitrack.ui.screens.countryregion.CountryRegionSelectionScreen
-import com.waldoz_x.reptitrack.ui.screens.mqtt.MqttSettingsScreen // ¡NUEVO! Importa la pantalla de configuración MQTT
-import com.waldoz_x.reptitrack.ui.screens.provisioning.BluetoothScanScreen
-import com.waldoz_x.reptitrack.ui.screens.provisioning.CheckpointScreen
-import com.waldoz_x.reptitrack.ui.screens.provisioning.CredentialsScreen
-import com.waldoz_x.reptitrack.ui.screens.provisioning.ProvisioningProcessScreen
-import com.waldoz_x.reptitrack.ui.screens.provisioning.SetupCompletedScreen
+import com.waldoz_x.reptitrack.ui.screens.mqtt.MqttSettingsScreen
+import com.waldoz_x.reptitrack.ui.screens.terrariumdetail.TerrariumDetailScreen
+import com.waldoz_x.reptitrack.ui.screens.provisioning.*
+
 
 // Define las rutas de navegación como constantes para evitar errores de tipeo
 object Destinations {
@@ -25,19 +24,17 @@ object Destinations {
     const val SETTINGS_ROUTE = "settings_route"
     const val TIME_ZONE_SELECTION_ROUTE = "time_zone_selection_route"
     const val COUNTRY_REGION_SELECTION_ROUTE = "country_region_selection_route"
-    const val MQTT_SETTINGS_ROUTE = "mqtt_settings_route" // ¡NUEVO! Ruta para configuración MQTT
-    const val TERRARIUM_DETAIL_ROUTE = "terrarium_detail_route/{terrariumId}"
-    const val TERRARIUM_ID_ARG = "terrariumId"
+    const val MQTT_SETTINGS_ROUTE = "mqtt_settings_route"
 
+    const val TERRARIUM_ID_ARG = "terrariumId"
+    const val TERRARIUM_DETAIL_ROUTE = "terrarium_detail_route/{$TERRARIUM_ID_ARG}"
 
     const val TERRARIUM_SETUP_CREDENTIALS = "terrarium_setup_credentials"
     const val BLUETOOTH_SCAN_ROUTE = "bluetooth_scan_route"
     const val TERRARIUM_SETUP_WIFI = "terrarium_setup_wifi"
     const val TERRARIUM_SETUP_SENDING = "terrarium_setup_sending"
-    const val TERRARIUM_SETUP_SUCCESS = "terrarium_setup_success"
     const val TERRARIUM_SETUP_CHECKPOINT = "terrarium_setup_checkpoint"
     const val TERRARIUM_SETUP_COMPLETED = "terrarium_setup_completed"
-
 }
 
 @Composable
@@ -54,12 +51,69 @@ fun AppNavHost(
         composable(Destinations.HOME_ROUTE) {
             HomeRoute(
                 navigateToTerrariumDetail = { terrariumId ->
-                    Log.d("AppNavHost", "Navegación a detalle de terrario $terrariumId (no implementada aún)")
+                    navController.navigate(
+                        Destinations.TERRARIUM_DETAIL_ROUTE.replace(
+                            "{${Destinations.TERRARIUM_ID_ARG}}", terrariumId
+                        )
+                    )
                 },
                 navigateToSettings = { navController.navigate(Destinations.SETTINGS_ROUTE) },
-                onAddTerrarium = { navController.navigate(Destinations.TERRARIUM_SETUP_CREDENTIALS) }            )
+                onAddTerrarium = { navController.navigate(Destinations.TERRARIUM_SETUP_CREDENTIALS) }
+            )
         }
 
+        composable(Destinations.SETTINGS_ROUTE) {
+            SettingsScreen(
+                onBackClick = { navController.popBackStack() },
+                navigateToTimeZoneSelection = { navController.navigate(Destinations.TIME_ZONE_SELECTION_ROUTE) },
+                navigateToCountryRegionSelection = { navController.navigate(Destinations.COUNTRY_REGION_SELECTION_ROUTE) },
+                navigateToMqttSettings = { navController.navigate(Destinations.MQTT_SETTINGS_ROUTE) },
+                navigateToTerrariumDetailPlaceholder = {
+                    navController.navigate(
+                        Destinations.TERRARIUM_DETAIL_ROUTE.replace(
+                            "{${Destinations.TERRARIUM_ID_ARG}}", "placeholder_terrarium_id"
+                        )
+                    )
+                }
+            )
+        }
+
+        composable(Destinations.TIME_ZONE_SELECTION_ROUTE) {
+            TimeZoneSelectionScreen(onBackClick = { navController.popBackStack() })
+        }
+
+        composable(Destinations.COUNTRY_REGION_SELECTION_ROUTE) {
+            CountryRegionSelectionScreen(onBackClick = { navController.popBackStack() })
+        }
+
+        composable(Destinations.MQTT_SETTINGS_ROUTE) {
+            MqttSettingsScreen(onBackClick = { navController.popBackStack() })
+        }
+
+        composable(
+            route = Destinations.TERRARIUM_DETAIL_ROUTE,
+            arguments = listOf(navArgument(Destinations.TERRARIUM_ID_ARG) {
+                type = NavType.StringType
+            })
+        ) { backStackEntry ->
+            val terrariumId = backStackEntry.arguments?.getString(Destinations.TERRARIUM_ID_ARG)
+            if (terrariumId != null) {
+                TerrariumDetailScreen(
+                    terrariumId = terrariumId,
+                    onBackClick = { navController.popBackStack() }
+                )
+            } else {
+                Log.e("AppNavHost", "Terrarium ID is null for detail route")
+                navController.popBackStack()
+            }
+        }
+
+        composable(Destinations.TERRARIUM_SETUP_CREDENTIALS) {
+            CredentialsScreen(
+                onNextClick = { navController.navigate(Destinations.BLUETOOTH_SCAN_ROUTE) },
+                onBackClick = { navController.popBackStack() }
+            )
+        }
 
         // Define una pantalla en el NavHost con la ruta "bluetooth_scan_route"
         composable(Destinations.BLUETOOTH_SCAN_ROUTE) {
@@ -80,41 +134,18 @@ fun AppNavHost(
                 }
             )
         }
-        composable(Destinations.TERRARIUM_SETUP_CHECKPOINT) {
-            CheckpointScreen(
-                onContinueClick = {
-                    navController.navigate(Destinations.TERRARIUM_SETUP_CREDENTIALS) {
-                        popUpTo(Destinations.TERRARIUM_SETUP_CHECKPOINT) {
-                            inclusive = true
-                        }
-                    }
-                },
-            )
-        }
 
-        composable(Destinations.TERRARIUM_SETUP_COMPLETED) {
-            SetupCompletedScreen(
-                onContinueClick = {
+        composable(Destinations.TERRARIUM_SETUP_WIFI) {
+            WiFiScanScreen(
+                onBackClick = { navController.popBackStack() },
+                onNavigateHome = {
                     navController.navigate(Destinations.HOME_ROUTE) {
-                        // Limpia toda la pila hasta HOME para evitar volver atrás a configuraciones
-                        popUpTo(Destinations.HOME_ROUTE) {
-                            inclusive = false
-                        }
-                        launchSingleTop = true
+                        popUpTo(Destinations.HOME_ROUTE) { inclusive = false }
                     }
-                }
-            )
-        }
-
-        composable(Destinations.TERRARIUM_SETUP_CREDENTIALS) {
-            CredentialsScreen(
-
-                onNextClick = { navController.navigate(Destinations.BLUETOOTH_SCAN_ROUTE) },
-                onBackClick = {
-                    // Dentro de la lambda, se llama a navController.popBackStack()
-                    // Esto hace que la navegación regrese a la pantalla anterior en la pila de navegación
-                    navController.popBackStack()
                 },
+                onNavigateToSendingScreen = {
+                    navController.navigate(Destinations.TERRARIUM_SETUP_SENDING)
+                }
             )
         }
 
@@ -136,74 +167,30 @@ fun AppNavHost(
             )
         }
 
-
-
-        composable(Destinations.TERRARIUM_SETUP_WIFI) {
-            WiFiScanScreen(
-                onBackClick = { navController.popBackStack() },
-                onNavigateHome = {
-                    navController.navigate(Destinations.HOME_ROUTE) {
-                        popUpTo(Destinations.HOME_ROUTE) { inclusive = false }
+        composable(Destinations.TERRARIUM_SETUP_CHECKPOINT) {
+            CheckpointScreen(
+                onContinueClick = {
+                    navController.navigate(Destinations.TERRARIUM_SETUP_CREDENTIALS) {
+                        popUpTo(Destinations.TERRARIUM_SETUP_CHECKPOINT) {
+                            inclusive = true
+                        }
                     }
-                },
-                onNavigateToSendingScreen = {
-                    navController.navigate(Destinations.TERRARIUM_SETUP_SENDING)
                 }
             )
         }
 
-
-
-
-
-        composable(Destinations.SETTINGS_ROUTE) {
-            SettingsScreen(
-                onBackClick = { navController.popBackStack() },
-                navigateToTimeZoneSelection = { navController.navigate(Destinations.TIME_ZONE_SELECTION_ROUTE) },
-                navigateToCountryRegionSelection = { navController.navigate(Destinations.COUNTRY_REGION_SELECTION_ROUTE) },
-                navigateToMqttSettings = { navController.navigate(Destinations.MQTT_SETTINGS_ROUTE) } // ¡NUEVO! Pasa el callback
+        composable(Destinations.TERRARIUM_SETUP_COMPLETED) {
+            SetupCompletedScreen(
+                onContinueClick = {
+                    navController.navigate(Destinations.HOME_ROUTE) {
+                        popUpTo(Destinations.HOME_ROUTE) {
+                            inclusive = false
+                        }
+                        launchSingleTop = true
+                    }
+                }
             )
         }
-
-        composable(Destinations.TIME_ZONE_SELECTION_ROUTE) {
-            TimeZoneSelectionScreen(
-                onBackClick = { navController.popBackStack() }
-            )
-        }
-
-        composable(Destinations.COUNTRY_REGION_SELECTION_ROUTE) {
-            CountryRegionSelectionScreen(
-                onBackClick = { navController.popBackStack() }
-            )
-        }
-
-        // ¡NUEVO! Ruta para la pantalla de configuración de MQTT
-        composable(Destinations.MQTT_SETTINGS_ROUTE) {
-            MqttSettingsScreen(
-                onBackClick = { navController.popBackStack() }
-            )
-        }
-
-
-
-
-        // Si tienes una ruta de detalle de terrario, asegúrate de que esté aquí
-        // composable(Destinations.TERRARIUM_DETAIL_ROUTE) { backStackEntry ->
-        //     val terrariumId = backStackEntry.arguments?.getString(Destinations.TERRARIUM_ID_ARG)
-        //     if (terrariumId != null) {
-        //         // Aquí podrías tener una TerrariumDetailRoute si la creas,
-        //         // por ahora usamos SensorDetailRoute como placeholder
-        //         SensorDetailRoute(
-        //             sensorId = terrariumId, // Usamos terrariumId como sensorId por ahora
-        //             onBackClick = { navController.popBackStack() }
-        //         )
-        //     } else {
-        //         // Manejar error o navegar de vuelta si el ID es nulo
-        //         Log.e("Navigation", "Terrarium ID is null for detail route")
-        //         navController.popBackStack()
-        //     }
-        // }
     }
 }
-
 
