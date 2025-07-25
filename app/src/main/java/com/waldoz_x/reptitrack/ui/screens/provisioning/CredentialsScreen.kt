@@ -4,6 +4,7 @@ import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -32,6 +33,13 @@ fun CredentialsScreen(
     var username by remember { mutableStateOf("reptitrack") }
     var proof by remember { mutableStateOf("xp4tzq7") }
     val context = LocalContext.current
+
+    val round by viewModel.provisioningRound.collectAsState()
+
+
+    LaunchedEffect(Unit) {
+        viewModel.iniciarNuevaSesion() // Esta función llama a provisioningRepository.clear()
+    }
 
     Scaffold(
         topBar = {
@@ -67,22 +75,41 @@ fun CredentialsScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.fillMaxWidth()
             ) {
-
-
                 Text(
                     "Ingresa tus credenciales",
                     style = MaterialTheme.typography.headlineMedium,
                     textAlign = TextAlign.Center
                 )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     "Introduce las credenciales de tu dispositivo ReptiTrack",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
                     textAlign = TextAlign.Center
                 )
+                Spacer(modifier = Modifier.height(12.dp))
+                Surface(
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier
+                        .padding(4.dp)
+                        .height(28.dp),
+                    shadowElevation = 0.dp
+                ) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .padding(horizontal = 12.dp)
+                    ) {
+                        Text(
+                            text = "Paso $round/2",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
+                            )
+                        )
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))

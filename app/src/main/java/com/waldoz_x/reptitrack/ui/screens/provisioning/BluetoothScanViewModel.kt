@@ -89,7 +89,11 @@ class BluetoothScanViewModel @Inject constructor(
         EventBus.getDefault().register(this)
     }
 
-
+    fun iniciarNuevaSesion() {
+        provisioningRepository.desconectarDispositivo()
+        provisioningRepository.clear()
+        provisioningRepository.clearDisconnectedFlag()
+    }
 
     override fun onCleared() {
         super.onCleared()
@@ -193,6 +197,8 @@ class BluetoothScanViewModel @Inject constructor(
     }
 
     fun conectarDispositivo(context: Context, dispositivo: DispositivoBLE) {
+        espDevice?.disconnectDevice()
+        espDevice = null
         val currentState = connectionStates.value[dispositivo.address]
 
         if (currentState == ConnectionState.CONNECTING) {

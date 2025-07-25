@@ -29,6 +29,9 @@ class ProvisioningViewModel @Inject constructor(
     private val _allDone = MutableStateFlow(false)
     val allDone: StateFlow<Boolean> = _allDone
 
+    val checkpointReached: StateFlow<Boolean> = provisioningRepository.checkpointReached
+
+
     fun startProvisioning() {
         viewModelScope.launch {
             try {

@@ -38,6 +38,15 @@ class WiFiScanViewModel @Inject constructor(
         provisioningRepository.clearDisconnectedFlag()
     }
 
+
+    fun iniciarNuevaSesion() {
+        provisioningRepository.desconectarDispositivo()
+        provisioningRepository.clear()
+        provisioningRepository.clearDisconnectedFlag()
+    }
+
+
+
     init {
         escanearRedes()
     }

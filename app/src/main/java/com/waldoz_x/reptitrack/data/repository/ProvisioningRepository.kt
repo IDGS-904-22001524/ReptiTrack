@@ -1,4 +1,4 @@
-// Definimos el paquete donde se encuentra esta clase. 
+// Definimos el paquete donde se encuentra esta clase.
 // Es una convención en Kotlin/Java para organizar el código según su función dentro del proyecto.
 package com.waldoz_x.reptitrack.data.repository
 
@@ -34,6 +34,8 @@ import javax.inject.Inject // Marca un constructor o campo para inyección autom
 import javax.inject.Singleton // Indica que esta clase debe tener una sola instancia (singleton).
 import dagger.hilt.android.qualifiers.ApplicationContext // Proporciona el contexto de la aplicación para evitar fugas de memoria.
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import org.greenrobot.eventbus.EventBus
 import org.greenrobot.eventbus.Subscribe
 import org.greenrobot.eventbus.ThreadMode
@@ -76,6 +78,41 @@ class ProvisioningRepository @Inject constructor(
     val ssid: StateFlow<String> = _ssid.asStateFlow()
     val password: StateFlow<String> = _password.asStateFlow()
 
+    // Flow para exponer el último error ocurrido en sendWifiCredentials (o null si no hay error)
+    private val _provisioningError = MutableStateFlow<Exception?>(null)
+    val provisioningError: StateFlow<Exception?> = _provisioningError.asStateFlow()
+
+    // Limpiar error (útil para la UI cuando se muestra el error y luego se quiere resetear)
+    fun clearProvisioningError() {
+        _provisioningError.value = null
+    }
+
+
+    // true si ya se completó el aprovisionamiento del primer ESP32
+    private val _checkpointReached = MutableStateFlow(false)
+    val checkpointReached: StateFlow<Boolean> = _checkpointReached.asStateFlow()
+
+    private val _provisioningRound = MutableStateFlow(1)
+    val provisioningRound: StateFlow<Int> = _provisioningRound.asStateFlow()
+
+    fun markCheckpointReached() {
+        _checkpointReached.value = true
+    }
+
+    fun resetCheckpoint() {
+        _checkpointReached.value = false
+    }
+
+    // Método para incrementar la ronda
+    fun incrementProvisioningRound() {
+        _provisioningRound.value = _provisioningRound.value + 1
+    }
+
+    // Método para resetear, si quieres
+    fun resetProvisioningRound() {
+        _provisioningRound.value = 1
+    }
+
 
     // En el bloque init se registra la clase actual como suscriptora de eventos en EventBus.
 // Esto significa que cualquier método anotado con @Subscribe en esta clase recibirá eventos publicados por otros.
@@ -112,21 +149,21 @@ class ProvisioningRepository @Inject constructor(
 
         if (event.eventType == ESPConstants.EVENT_DEVICE_DISCONNECTED) {
 
-            /*
-             * Actualizamos el valor del StateFlow _deviceDisconnected a 'true'.
-             * Esto es una señal para cualquier observador (por ejemplo, una pantalla en Jetpack Compose)
-             * de que el dispositivo se ha desconectado.
-             *
-             * Al ser un StateFlow, este cambio puede ser observado de forma reactiva para mostrar un AlertDialog,
-             * redirigir al usuario a otra pantalla, etc.
-             */
-            _deviceDisconnected.value = true
+            /* * Actualizamos el valor del StateFlow _deviceDisconnected a 'true'.
+                * Esto es una señal para cualquier observador (por ejemplo, una pantalla en Jetpack Compose)
+                * de que el dispositivo se ha desconectado.
+                  * Al ser un StateFlow, este cambio puede ser observado de forma reactiva para mostrar un AlertDialog,
+                   * redirigir al usuario a otra pantalla, etc. */
+
+                    _deviceDisconnected.value = true
+                    Log.e("ProvisioningRepo", " Se ha desconectado el dispositivo")
+
         }
     }
 
     fun saveWifiCredentials(ssid: String, password: String) {
-        _ssid.value = ssid
-        _password.value = password
+        _ssid.value = ssid.trim()
+        _password.value = password.trim()
     }
 
     fun clearDisconnectedFlag() {
@@ -137,8 +174,8 @@ class ProvisioningRepository @Inject constructor(
         EventBus.getDefault().unregister(this)
     }
     fun saveCredentials(username: String, proof: String) {
-        _username.value = username // Asigna el nuevo valor al flujo de _username.
-        _proof.value = proof       // Asigna el nuevo valor al flujo de _proof.
+        _username.value = username.trim() // Asigna el nuevo valor al flujo de _username.
+        _proof.value = proof.trim()      // Asigna el nuevo valor al flujo de _proof.
     }
 
 
@@ -161,6 +198,7 @@ class ProvisioningRepository @Inject constructor(
         try {
             _espDevice.value?.disconnectDevice()
             _espDevice.value = null // Limpiamos el estado después de desconectar
+            Log.e("ProvisioningRepo", "Dispositivo desconectado manualmente")
         } catch (e: Exception) {
             Log.e("ProvisioningRepo", "Error al desconectar dispositivo: ${e.message}")
         }
@@ -171,28 +209,38 @@ class ProvisioningRepository @Inject constructor(
     // Enviar credenciales Wi-Fi al ESP32
     suspend fun sendWifiCredentials(ssid: String, password: String) {
         val device = _espDevice.value ?: throw IllegalStateException("ESPDevice no disponible")
-        // SuspendingCoroutine para esperar el resultado del listener
         kotlinx.coroutines.suspendCancellableCoroutine<Unit> { cont ->
             device.provision(ssid, password, object : ProvisionListener {
                 override fun createSessionFailed(e: Exception?) {
-                    cont.resumeWith(Result.failure(e ?: Exception("Fallo al crear sesión")))
+                    val error = e ?: Exception("Fallo al crear sesión")
+                    _provisioningError.value = error
+                    cont.resumeWith(Result.failure(error))
                 }
                 override fun wifiConfigSent() {}
                 override fun wifiConfigFailed(e: Exception?) {
-                    cont.resumeWith(Result.failure(e ?: Exception("Fallo al enviar configuración Wi-Fi")))
+                    val error = e ?: Exception("Fallo al enviar configuración Wi-Fi")
+                    _provisioningError.value = error
+                    cont.resumeWith(Result.failure(error))
                 }
                 override fun wifiConfigApplied() {}
                 override fun wifiConfigApplyFailed(e: Exception?) {
-                    cont.resumeWith(Result.failure(e ?: Exception("Fallo al aplicar configuración Wi-Fi")))
+                    val error = e ?: Exception("Fallo al aplicar configuración Wi-Fi")
+                    _provisioningError.value = error
+                    cont.resumeWith(Result.failure(error))
                 }
                 override fun provisioningFailedFromDevice(failureReason: ESPConstants.ProvisionFailureReason?) {
-                    cont.resumeWith(Result.failure(Exception("Provisioning falló: $failureReason")))
+                    val error = Exception("Provisioning falló: $failureReason")
+                    _provisioningError.value = error
+                    cont.resumeWith(Result.failure(error))
                 }
                 override fun deviceProvisioningSuccess() {
+                    _provisioningError.value = null // Limpiar error en éxito
                     cont.resumeWith(Result.success(Unit))
                 }
                 override fun onProvisioningFailed(e: Exception?) {
-                    cont.resumeWith(Result.failure(e ?: Exception("Provisioning falló")))
+                    val error = e ?: Exception("Provisioning falló")
+                    _provisioningError.value = error
+                    cont.resumeWith(Result.failure(error))
                 }
             })
         }
@@ -229,6 +277,30 @@ class ProvisioningRepository @Inject constructor(
         )
     }
 
+    // Verifica si el dispositivo responde al endpoint "ping-conn"
+    suspend fun isDeviceReallyConnected(): Boolean {
+        Log.d("ProvisioningRepo", "Llamando a isDeviceReallyConnected()")
+        val device = _espDevice.value ?: return false
+
+        return try {
+            withTimeoutOrNull(3000) { // Espera máximo 1 segundo
+                kotlinx.coroutines.suspendCancellableCoroutine<Boolean> { cont ->
+                    device.sendDataToCustomEndPoint("ping-conn", ByteArray(0), object : ResponseListener {
+                        override fun onSuccess(returnData: ByteArray?) {
+                            cont.resume(true, null)
+                        }
+
+                        override fun onFailure(e: Exception?) {
+                            cont.resume(false, null)
+                        }
+                    })
+                }
+            } ?: false // Si pasa el tiempo sin respuesta, asumimos que está desconectado
+        } catch (e: Exception) {
+            Log.e("ProvisioningRepo", "ping-conn fallo: ${e.message}")
+            false
+        }
+    }
 
     // Función genérica para enviar datos personalizados al ESP32
     private suspend fun sendCustomData(path: String, data: ByteArray) {

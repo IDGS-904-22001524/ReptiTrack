@@ -1,5 +1,6 @@
 package com.waldoz_x.reptitrack.presentation.wifi
 
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -85,6 +86,7 @@ fun WiFiScanScreen(
     }
 
     LaunchedEffect(deviceDisconnected) {
+        Log.e("ProvisioningRepo", "ping-conn fallo: $deviceDisconnected")
         if (deviceDisconnected) {
             showDisconnectedDialog = true
         }
@@ -117,7 +119,7 @@ fun WiFiScanScreen(
                 title = { Text("Selecciona Red Wi-Fi") },
                 navigationIcon = {
                     IconButton(onClick = {
-                        viewModel.desconectarDispositivo()
+                        viewModel.iniciarNuevaSesion()
                         onBackClick()
                     }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")

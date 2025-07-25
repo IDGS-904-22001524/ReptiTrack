@@ -22,6 +22,16 @@ class CredentialsViewModel @Inject constructor(
         viewModelScope, SharingStarted.WhileSubscribed(5000), null
     )
 
+    val provisioningRound: StateFlow<Int> = provisioningRepository.provisioningRound
+
+
+
+    fun iniciarNuevaSesion() {
+        provisioningRepository.desconectarDispositivo()
+        provisioningRepository.clear()
+        provisioningRepository.clearDisconnectedFlag()
+    }
+
     fun setCredentials(username: String, proof: String) {
         viewModelScope.launch {
             provisioningRepository.saveCredentials(username, proof)

@@ -14,8 +14,10 @@ import com.waldoz_x.reptitrack.ui.screens.timezone.TimeZoneSelectionScreen
 import com.waldoz_x.reptitrack.ui.screens.countryregion.CountryRegionSelectionScreen
 import com.waldoz_x.reptitrack.ui.screens.mqtt.MqttSettingsScreen // ¡NUEVO! Importa la pantalla de configuración MQTT
 import com.waldoz_x.reptitrack.ui.screens.provisioning.BluetoothScanScreen
+import com.waldoz_x.reptitrack.ui.screens.provisioning.CheckpointScreen
 import com.waldoz_x.reptitrack.ui.screens.provisioning.CredentialsScreen
 import com.waldoz_x.reptitrack.ui.screens.provisioning.ProvisioningProcessScreen
+import com.waldoz_x.reptitrack.ui.screens.provisioning.SetupCompletedScreen
 
 // Define las rutas de navegación como constantes para evitar errores de tipeo
 object Destinations {
@@ -78,6 +80,31 @@ fun AppNavHost(
                 }
             )
         }
+        composable(Destinations.TERRARIUM_SETUP_CHECKPOINT) {
+            CheckpointScreen(
+                onContinueClick = {
+                    navController.navigate(Destinations.TERRARIUM_SETUP_CREDENTIALS) {
+                        popUpTo(Destinations.TERRARIUM_SETUP_CHECKPOINT) {
+                            inclusive = true
+                        }
+                    }
+                },
+            )
+        }
+
+        composable(Destinations.TERRARIUM_SETUP_COMPLETED) {
+            SetupCompletedScreen(
+                onContinueClick = {
+                    navController.navigate(Destinations.HOME_ROUTE) {
+                        // Limpia toda la pila hasta HOME para evitar volver atrás a configuraciones
+                        popUpTo(Destinations.HOME_ROUTE) {
+                            inclusive = false
+                        }
+                        launchSingleTop = true
+                    }
+                }
+            )
+        }
 
         composable(Destinations.TERRARIUM_SETUP_CREDENTIALS) {
             CredentialsScreen(
@@ -94,15 +121,21 @@ fun AppNavHost(
         composable(Destinations.TERRARIUM_SETUP_SENDING) {
             ProvisioningProcessScreen(
                 onProvisioningSuccess = {
-                    navController.navigate(Destinations.TERRARIUM_SETUP_COMPLETED)
+                    navController.navigate(Destinations.TERRARIUM_SETUP_CHECKPOINT)
                 },
-                onProvisioningFailed = {
+                onNavigateToHome = {
                     navController.navigate(Destinations.HOME_ROUTE) {
                         popUpTo(Destinations.HOME_ROUTE) { inclusive = false }
+                    }
+                },
+                onNavigateToCompleted = {
+                    navController.navigate(Destinations.TERRARIUM_SETUP_COMPLETED) {
+                        popUpTo(Destinations.HOME_ROUTE) { inclusive = true }
                     }
                 }
             )
         }
+
 
 
         composable(Destinations.TERRARIUM_SETUP_WIFI) {
