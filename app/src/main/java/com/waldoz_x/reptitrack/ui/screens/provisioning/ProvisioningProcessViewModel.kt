@@ -1,4 +1,4 @@
-package com.waldoz_x.reptitrack.presentation.provisioning
+package com.waldoz_x.reptitrack.ui.screens.provisioning
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -9,6 +9,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.google.firebase.auth.FirebaseAuth
+
 
 @HiltViewModel
 class ProvisioningViewModel @Inject constructor(
@@ -35,20 +37,21 @@ class ProvisioningViewModel @Inject constructor(
     fun startProvisioning() {
         viewModelScope.launch {
             try {
+                val userId = FirebaseAuth.getInstance().currentUser?.uid ?: throw IllegalStateException("Usuario no autenticado")
                 _dbStep.value = StepState.LOADING
-                provisioningRepository.sendDatabaseConfig()
+                provisioningRepository.sendDatabaseConfig(userId.trim())  // Ejecutamos la funcion que envia los datos
                 _dbStep.value = StepState.SUCCESS
 
                 _mqttStep.value = StepState.LOADING
-                provisioningRepository.sendMqttConfig()
+                provisioningRepository.sendMqttConfig() // Ejecutamos la funcion que envia los datos
                 _mqttStep.value = StepState.SUCCESS
 
                 _wifiStep.value = StepState.LOADING
 
-                val ssid = provisioningRepository.ssid.value ?: throw IllegalStateException("SSID vacío")
-                val password = provisioningRepository.password.value ?: ""
+                val ssid = provisioningRepository.ssid.value.trim() ?: throw IllegalStateException("SSID vacío")
+                val password = provisioningRepository.password.value.trim() ?: ""
 
-                provisioningRepository.sendWifiCredentials(ssid, password)
+                provisioningRepository.sendWifiCredentials(ssid, password) // Ejecutamos la funcion que envia los datos
                 _wifiStep.value = StepState.SUCCESS
 
                 // Simula espera de confirmación MQTT
@@ -64,4 +67,5 @@ class ProvisioningViewModel @Inject constructor(
             }
         }
     }
+
 }

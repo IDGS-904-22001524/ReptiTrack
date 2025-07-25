@@ -54,7 +54,7 @@ fun SetupCompletedScreen(
             )
 
             Text(
-                text = "¡Tu terrario ha sido configurado exitosamente!",
+                text = "¡Los dispositivos se conectaron correctamente!",
                 style = MaterialTheme.typography.headlineSmall.copy(fontSize = 26.sp),
                 color = Color(0xFF2E7D32),
                 textAlign = TextAlign.Center,
@@ -64,7 +64,7 @@ fun SetupCompletedScreen(
             )
 
             Text(
-                text = "Ahora puedes monitorear y controlar tu terrario",
+                text = "Tu terrario está listo para ser monitoreado y controlado",
                 style = MaterialTheme.typography.bodyLarge.copy(fontSize = 18.sp),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,

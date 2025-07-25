@@ -247,13 +247,27 @@ class ProvisioningRepository @Inject constructor(
     }
 
     // Enviar configuración de base de datos (ejemplo)
-    suspend fun sendDatabaseConfig() {
-        val exampleData = "config_example_db".toByteArray()
+    suspend fun sendDatabaseConfig(userId: String) {
+        // Obtenemos la ronda actual (por defecto empieza en 1)
+        val round = _provisioningRound.value
+
+        // Generamos un ID único para el ESP32 basado en la ronda
+        val espId = "Esp32_$round"
+
+        val jsonObj = JSONObject().apply {
+            put("userId", userId)
+            put("espId", espId)
+            // Puedes agregar más parámetros según necesites
+        }
+
+        val data = jsonObj.toString().toByteArray(Charsets.UTF_8)
+
         sendCustomData(
             path = "db-config",
-            data = exampleData
+            data = data
         )
     }
+ 
 
     // Enviar configuración MQTT
 
