@@ -33,6 +33,11 @@ fun ProvisioningProcessScreen(
     val allDone by viewModel.allDone.collectAsState()
     val checkpointReached by viewModel.checkpointReached.collectAsState()
      val context =  LocalContext.current
+     val provisioningError by viewModel.provisioningError.collectAsState()
+
+     fun reintentarProceso() {
+         viewModel.iniciarNuevaSesion()
+     }
 
      val hasError = listOf(dbStep, mqttStep, wifiStep).any { it == ProvisioningViewModel.StepState.ERROR }
 
@@ -103,7 +108,28 @@ fun ProvisioningProcessScreen(
 
             if (hasError) {
                 Text(
-                    text = "No se pudo completar la provisión",
+                // Esta línea usa el operador Elvis ?: para proporcionar un valor por defecto
+                // si la variable 'provisioningError' es null.
+                //
+                // La sintaxis general es:
+                //    valor ?: valorPorDefecto
+                //
+                // Esto significa:
+                //    - Si 'valor' NO es null, se usa 'valor'.
+                //    - Si 'valor' ES null, se usa 'valorPorDefecto'.
+                //
+                // En este caso, si 'provisioningError' es null, se usará el texto
+                // "No se pudo completar la provisión".
+                //
+
+                // NOTA: El operador Elvis (?:) solo comprueba si el valor de la izquierda es null,
+                // y devuelve el valor de la derecha en ese caso.
+                // No es un operador ternario general como en otros lenguajes que permite evaluar
+                // cualquier condición booleana; sólo maneja el caso null de forma concisa.
+                // condición ? valor_si_true : valor_si_false
+
+                    provisioningError ?: "No se pudo completar la provisión"
+                    ,
                     color = Color(0xFFF44336),
                     style = MaterialTheme.typography.bodyMedium,
                     textAlign = TextAlign.Center,
@@ -115,9 +141,10 @@ fun ProvisioningProcessScreen(
                     onClick = {
                         Toast.makeText(context, "Hubo un error, por favor intente de nuevo", Toast.LENGTH_SHORT).show()
                         onNavigateToHome()
-                    },
+                        reintentarProceso()
+                           },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF44336)),
-                    modifier = Modifier.fillMaxWidth(0.5f)
+                    modifier = Modifier.widthIn(min = 200.dp) // Ancho mínimo pero se expande si es necesario
                 ) {
                     Text("Reintentar", color = Color.White)
                 }

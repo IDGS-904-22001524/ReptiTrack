@@ -79,8 +79,8 @@ class ProvisioningRepository @Inject constructor(
     val password: StateFlow<String> = _password.asStateFlow()
 
     // Flow para exponer el último error ocurrido en sendWifiCredentials (o null si no hay error)
-    private val _provisioningError = MutableStateFlow<Exception?>(null)
-    val provisioningError: StateFlow<Exception?> = _provisioningError.asStateFlow()
+    private val _provisioningError = MutableStateFlow<String?>(null)
+    val provisioningError: StateFlow<String?> = _provisioningError.asStateFlow()
 
     // Limpiar error (útil para la UI cuando se muestra el error y luego se quiere resetear)
     fun clearProvisioningError() {
@@ -205,46 +205,108 @@ class ProvisioningRepository @Inject constructor(
     }
 
     // ----------- FUNCIONES DE PROVISIONING -----------
-
-    // Enviar credenciales Wi-Fi al ESP32
+// Función suspendida que envía credenciales Wi-Fi al dispositivo ESP32
+// Está suspendida para poder usarla dentro de una coroutine y esperar el resultado asincrónico
     suspend fun sendWifiCredentials(ssid: String, password: String) {
+
+        // Obtiene el dispositivo actual desde un StateFlow o similar
+        // Si no existe, lanza una excepción porque no se puede continuar sin el dispositivo
         val device = _espDevice.value ?: throw IllegalStateException("ESPDevice no disponible")
+
+        // Inicia una coroutine cancelable, lo que permite suspender la ejecució
+        // hasta que se reciba un callback de éxito o error del provisioning
         kotlinx.coroutines.suspendCancellableCoroutine<Unit> { cont ->
+
+            // Se llama a provision(), que es el método de la librería ESPProvisionManager
+            // Este método envía las credenciales (SSID y contraseña) al dispositivo ESP32
             device.provision(ssid, password, object : ProvisionListener {
+
+                // Se ejecuta si falla la creación de la sesión segura (por ejemplo, falló el handshake BLE).
                 override fun createSessionFailed(e: Exception?) {
-                    val error = e ?: Exception("Fallo al crear sesión")
-                    _provisioningError.value = error
-                    cont.resumeWith(Result.failure(error))
+                    val errorMessage = e?.message ?: "Fallo al crear sesión"
+                    _provisioningError.value = errorMessage // Guarda solo el mensaje de error
+
+                // Reanuda la ejecución de la coroutine que estaba suspendida,
+                    // 'cont' es una continuación (Continuation), usada para reanudar una función suspendida.
+                    // Aquí se está indicando que la operación de aprovisionamiento falló,
+                    // por lo que se crea una excepción con el mensaje de error ('errorMessage').
+                    // Luego se envuelve esa excepción en un Result.failure(...) para representar el fallo.
+                    // Finalmente, 'cont.resumeWith(...)' reanuda la coroutine enviando ese fallo,
+                    // lo que provoca que la función suspendida termine con una excepción que puede capturarse
+                    // usando try/catch o propagarse hacia arriba.
+                    cont.resumeWith(Result.failure(Exception(errorMessage)))
                 }
-                override fun wifiConfigSent() {}
+
+                // Se llama cuando las credenciales Wi-Fi (SSID y password) han sido enviadas con éxito.
+                override fun wifiConfigSent() {
+                    // Solo notifica que fueron enviadas, pero aún no aplicadas.
+                    // Aquí es CUANDO SE ENVIAN LAS CREDENCIALES al ESP32 vía BLE.
+                }
+
+                // Se ejecuta si ocurrió un error al enviar las credenciales Wi-Fi.
                 override fun wifiConfigFailed(e: Exception?) {
-                    val error = e ?: Exception("Fallo al enviar configuración Wi-Fi")
-                    _provisioningError.value = error
-                    cont.resumeWith(Result.failure(error))
+                    val errorMessage = e?.message ?: "Fallo al enviar configuración Wi-Fi"
+                    _provisioningError.value = errorMessage
+                    cont.resumeWith(Result.failure(Exception(errorMessage)))
                 }
-                override fun wifiConfigApplied() {}
+
+                // Se llama cuando el dispositivo recibió y aplicó la configuración Wi-Fi correctamente,
+                // pero aún no se ha confirmado si logró conectarse a la red.
+                override fun wifiConfigApplied() {
+                    // Opcional: podrías hacer un log aquí o usarlo para mostrar progreso
+                }
+
+                // Se llama si hubo un error al aplicar la configuración Wi-Fi (por ejemplo, el ESP32 no pudo usar las credenciales).
                 override fun wifiConfigApplyFailed(e: Exception?) {
-                    val error = e ?: Exception("Fallo al aplicar configuración Wi-Fi")
-                    _provisioningError.value = error
-                    cont.resumeWith(Result.failure(error))
+                    val errorMessage = e?.message ?: "Fallo al aplicar configuración Wi-Fi"
+                    _provisioningError.value = errorMessage
+                    cont.resumeWith(Result.failure(Exception(errorMessage)))
                 }
+
+                // Se llama cuando el dispositivo ESP32 responde que falló la conexión Wi-Fi (por ejemplo, clave incorrecta).
                 override fun provisioningFailedFromDevice(failureReason: ESPConstants.ProvisionFailureReason?) {
-                    val error = Exception("Provisioning falló: $failureReason")
-                    _provisioningError.value = error
-                    cont.resumeWith(Result.failure(error))
+                    val errorMessage = when (failureReason) {
+                        ESPConstants.ProvisionFailureReason.AUTH_FAILED -> "autenticación fallida"
+                        ESPConstants.ProvisionFailureReason.NETWORK_NOT_FOUND -> "red no encontrada"
+                        ESPConstants.ProvisionFailureReason.DEVICE_DISCONNECTED -> "dispositivo desconectado"
+                        ESPConstants.ProvisionFailureReason.UNKNOWN, null -> "desconocido"
+                    }
+
+                    _provisioningError.value = "Error en la configuración: $errorMessage"
+                    cont.resumeWith(Result.failure(Exception(errorMessage)))
                 }
+
+
+                // Se llama si todo el proceso fue exitoso:
+                // 1. Sesión creada
+                // 2. Credenciales enviadas
+                // 3. Credenciales aplicadas
+                // 4. Dispositivo conectado exitosamente a la red Wi-Fi
                 override fun deviceProvisioningSuccess() {
-                    _provisioningError.value = null // Limpiar error en éxito
-                    cont.resumeWith(Result.success(Unit))
-                }
+                    _provisioningError.value = "" // Limpia cualquier error anterior (cadena vacía)
+                    /*
+                     * Reanuda la ejecución de la coroutine que estaba suspendida.
+                     * 'cont' es una Continuation, un objeto que representa el punto en que se suspendió la función.
+                     * Aquí se está indicando que la operación de aprovisionamiento fue exitosa.
+
+                      * Se utiliza Result.success(Unit) para envolver el resultado exitoso de la operación,
+                      * donde 'Unit' representa que no hay un valor específico que devolver, solo que se completó correctamente.
+
+                      * Finalmente, cont.resumeWith(...) reanuda la coroutine con ese resultado exitoso,
+                      * lo que permite que la función suspendida continúe normalmente sin lanzar ninguna excepción.
+                      */
+                    cont.resumeWith(Result.success(Unit))                }
+
+                // Se llama si ocurre cualquier otro error general durante el proceso de provisioning.
                 override fun onProvisioningFailed(e: Exception?) {
-                    val error = e ?: Exception("Provisioning falló")
-                    _provisioningError.value = error
-                    cont.resumeWith(Result.failure(error))
+                    val errorMessage = e?.message ?: "Provisioning falló"
+                    _provisioningError.value = errorMessage
+                    cont.resumeWith(Result.failure(Exception(errorMessage)))
                 }
             })
         }
     }
+
 
     // Enviar configuración de base de datos (ejemplo)
     suspend fun sendDatabaseConfig(userId: String) {
@@ -320,6 +382,7 @@ class ProvisioningRepository @Inject constructor(
     private suspend fun sendCustomData(path: String, data: ByteArray) {
         val device = _espDevice.value ?: throw IllegalStateException("ESPDevice no disponible")
         kotlinx.coroutines.suspendCancellableCoroutine<Unit> { cont ->
+            //se envia aqui los datos
             device.sendDataToCustomEndPoint(path, data, object : ResponseListener {
                 override fun onSuccess(returnData: ByteArray?) {
                     if (returnData != null) {
