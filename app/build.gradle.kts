@@ -1,5 +1,3 @@
-// app/build.gradle.kts (Module: app)
-
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -8,7 +6,7 @@ plugins {
     // Plugins para Dagger Hilt
     alias(libs.plugins.hilt.android)
     alias(libs.plugins.ksp)
-    id("org.jetbrains.kotlin.kapt")
+    kotlin("kapt") // Agregado para habilitar kapt
 
     // Plugin de Google Services para Firebase
     id("com.google.gms.google-services")
@@ -16,11 +14,11 @@ plugins {
 
 android {
     namespace = "com.waldoz_x.reptitrack"
-    compileSdk = 36
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.waldoz_x.reptitrack"
-        minSdk = 26
+        minSdk = 24
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
@@ -44,10 +42,8 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
-    kotlin {
-        compilerOptions {
-            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
-        }
+    kotlinOptions {
+        jvmTarget = "11"
     }
     buildFeatures {
         compose = true
@@ -65,7 +61,11 @@ android {
 }
 
 dependencies {
-
+    implementation("com.github.espressif:esp-idf-provisioning-android:lib-2.2.5")
+    implementation("androidx.navigation:navigation-compose:2.9.1")
+    implementation("com.airbnb.android:lottie-compose:6.3.0")
+    implementation("org.greenrobot:eventbus:3.3.1")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.4.0")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
@@ -77,10 +77,10 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
 
-
     implementation(libs.hilt.android)
     kapt(libs.hilt.compiler)
     implementation(libs.hilt.navigation.compose)
+
     implementation(libs.androidx.ui.text.google.fonts)
     implementation(libs.androidx.animation.core.lint)
     implementation(platform(libs.firebase.bom))

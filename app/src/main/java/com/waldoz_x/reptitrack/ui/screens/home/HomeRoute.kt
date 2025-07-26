@@ -8,9 +8,10 @@ import androidx.hilt.navigation.compose.hiltViewModel
 // Composable de ruta para la pantalla de inicio.
 // Este Composable es el que se llama desde AppNavHost.
 @Composable
-fun HomeRoutes( // Mantengo HomeRoute, asumiendo que ya resolviste el conflicto de nombres
+fun HomeRoutes(
     navigateToTerrariumDetail: (String) -> Unit, // Callback para navegar al detalle del terrario
-    navigateToSettings: () -> Unit, // ¡NUEVO! Callback para navegar a ajustes
+    navigateToSettings: () -> Unit, // Callback para navegar a ajustes
+    onAddTerrarium: () -> Unit, // Callback para añadir terrario
     viewModel: HomeViewModel = hiltViewModel() // Inyecta el HomeViewModel
 ) {
     // Recoge el estado de la UI del ViewModel como un State
@@ -28,6 +29,7 @@ fun HomeRoutes( // Mantengo HomeRoute, asumiendo que ya resolviste el conflicto 
         isMqttConnected = isMqttConnected,
         isFirebaseConnected = isFirebaseConnected,
         currentUserData = currentUserData,
-        onSettingsClick = navigateToSettings // ¡NUEVO! Pasa el callback de ajustes
+        onSettingsClick = navigateToSettings,
+        onAddTerrariumClick = onAddTerrarium
     )
 }

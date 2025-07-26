@@ -33,6 +33,9 @@ class UserPreferencesRepository @Inject constructor(
         val FIRST_LAUNCH_COMPLETED = booleanPreferencesKey("first_launch_completed")
         val MQTT_USERNAME = stringPreferencesKey("mqtt_username") // ¡NUEVO! Clave para el usuario MQTT
         val MQTT_PASSWORD = stringPreferencesKey("mqtt_password") // ¡NUEVO! Clave para la contraseña MQTT
+
+        val TERRARIUM_SETUP_PHASE = stringPreferencesKey("terrarium_setup_phase")
+
     }
 
     // Flow para leer el estado de la preferencia de "actualizar con datos móviles"
@@ -40,6 +43,14 @@ class UserPreferencesRepository @Inject constructor(
         .map { preferences ->
             val value = preferences[PreferencesKeys.AUTO_UPDATE_MOBILE_DATA] ?: false
             Log.d(TAG, "Leyendo preferencia 'auto_update_mobile_data': $value")
+            value
+        }
+
+    // Flow para leer la fase de configuración del terrario
+    val terrariumSetupPhase: Flow<String?> = context.dataStore.data
+        .map { preferences ->
+            val value = preferences[PreferencesKeys.TERRARIUM_SETUP_PHASE]
+            Log.d(TAG, "Leyendo preferencia 'terrarium_setup_phase': $value")
             value
         }
 
@@ -91,11 +102,27 @@ class UserPreferencesRepository @Inject constructor(
             value
         }
 
+
+
     // Función suspend para guardar el estado de la preferencia de "actualizar con datos móviles"
     suspend fun saveAutoUpdateMobileDataPreference(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.AUTO_UPDATE_MOBILE_DATA] = enabled
             Log.d(TAG, "Guardando preferencia 'auto_update_mobile_data': $enabled")
+        }
+    }
+
+    suspend fun saveTerrariumSetupPhase(phase: String) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.TERRARIUM_SETUP_PHASE] = phase
+            Log.d(TAG, "Guardando preferencia 'terrarium_setup_phase': $phase")
+        }
+    }
+
+    suspend fun clearTerrariumSetupPhase() {
+        context.dataStore.edit { preferences ->
+            preferences.remove(PreferencesKeys.TERRARIUM_SETUP_PHASE)
+            Log.d(TAG, "Limpiando preferencia 'terrarium_setup_phase'")
         }
     }
 
@@ -139,4 +166,7 @@ class UserPreferencesRepository @Inject constructor(
             Log.d(TAG, "Guardando credenciales MQTT para usuario: $username")
         }
     }
+
+
+
 }

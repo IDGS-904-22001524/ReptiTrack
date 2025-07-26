@@ -29,22 +29,24 @@ import com.waldoz_x.reptitrack.ui.components.TerrariumCard
 @Composable
 fun HomeRoute(
     navigateToTerrariumDetail: (String) -> Unit,
-    navigateToSettings: () -> Unit, // Callback para navegar a ajustes
+    navigateToSettings: () -> Unit,
+    onAddTerrarium: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val isMqttConnected by viewModel.mqttConnectionState.collectAsState()
-    val isFirebaseConnected by viewModel.firebaseConnectionState.collectAsState() // NUEVO: Recoge el estado de Firebase
-    val currentUserData by viewModel.currentUserData.collectAsState() // NUEVO: Recoge los datos del usuario
+    val isFirebaseConnected by viewModel.firebaseConnectionState.collectAsState()
+    val currentUserData by viewModel.currentUserData.collectAsState()
 
     HomeScreen(
         uiState = uiState,
         onTerrariumClick = navigateToTerrariumDetail,
         onRetryClick = viewModel::loadTerrariums,
         isMqttConnected = isMqttConnected,
-        isFirebaseConnected = isFirebaseConnected, // NUEVO: Pasa el estado de Firebase
-        currentUserData = currentUserData, // NUEVO: Pasa los datos del usuario
-        onSettingsClick = navigateToSettings
+        isFirebaseConnected = isFirebaseConnected,
+        currentUserData = currentUserData,
+        onSettingsClick = navigateToSettings,
+        onAddTerrariumClick = onAddTerrarium
     )
 }
 
@@ -55,9 +57,10 @@ fun HomeScreen(
     onTerrariumClick: (String) -> Unit,
     onRetryClick: () -> Unit,
     isMqttConnected: Boolean,
-    isFirebaseConnected: Boolean, // NUEVO: Parámetro para el estado de Firebase
-    currentUserData: UserData?, // NUEVO: Parámetro para los datos del usuario
-    onSettingsClick: () -> Unit
+    isFirebaseConnected: Boolean,
+    currentUserData: UserData?,
+    onSettingsClick: () -> Unit,
+    onAddTerrariumClick: () -> Unit
 ) {
     Scaffold(
         topBar = {
@@ -72,7 +75,7 @@ fun HomeScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { /* TODO: Acción para añadir un terrario */ }) {
+            FloatingActionButton(onClick = onAddTerrariumClick) {
                 Icon(Icons.Default.Add, contentDescription = "Añadir Terrario")
             }
         }
@@ -138,7 +141,7 @@ fun HomeScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp), // Reducido el padding vertical
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
@@ -158,7 +161,7 @@ fun HomeScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp), // Reducido el padding vertical
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
@@ -192,6 +195,7 @@ fun HomeScreen(
                             CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                         }
                     }
+
                     is HomeUiState.Success -> {
                         if (uiState.terrariums.isEmpty()) {
                             Box(
@@ -217,6 +221,7 @@ fun HomeScreen(
                             }
                         }
                     }
+
                     is HomeUiState.Error -> {
                         Box(
                             modifier = Modifier.fillMaxSize(),
