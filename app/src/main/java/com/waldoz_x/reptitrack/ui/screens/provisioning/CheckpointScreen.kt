@@ -49,7 +49,7 @@ fun CheckpointScreen(
             )
 
             Text(
-                text = "Pulsa el botón para continuar con la segunda parte.\n" +
+                text = "Pulsa el botón para continuar con la segunda parte\n" +
                         "Si ocurre algún error en este paso, tendrás que iniciar la configuración desde cero",
                 style = MaterialTheme.typography.bodyLarge.copy(fontSize = 18.sp),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

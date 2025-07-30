@@ -86,11 +86,15 @@ fun WiFiScanScreen(
     }
 
     LaunchedEffect(deviceDisconnected) {
-        Log.e("ProvisioningRepo", "ping-conn fallo: $deviceDisconnected")
-        if (deviceDisconnected) {
+        if (!deviceDisconnected) {
+            Log.i("ProvisioningRepo", "Dispositivo conectado")
+            showDisconnectedDialog = false
+        } else {
+            Log.e("ProvisioningRepo", "Dispositivo desconectado")
             showDisconnectedDialog = true
         }
     }
+
 
     if (showDisconnectedDialog) {
         AlertDialog(
@@ -226,7 +230,7 @@ fun WiFiScanScreen(
         // Crea un AlertDialog (cuadro de diálogo modal)
         AlertDialog(
             // Configura qué pasa cuando se hace clic fuera del diálogo (lo cierra)
-            onDismissRequest = { showPasswordDialog = false },
+            onDismissRequest = { /* No cerrar al tocar fuera */ },
             // Título del diálogo
             title = {
                 // Muestra el nombre de la red WiFi seleccionada o un texto por defecto

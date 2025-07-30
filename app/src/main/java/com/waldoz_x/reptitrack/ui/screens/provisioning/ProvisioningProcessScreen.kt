@@ -139,7 +139,7 @@ fun ProvisioningProcessScreen(
                 )
                 Button(
                     onClick = {
-                        Toast.makeText(context, "Hubo un error, por favor intente de nuevo", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Hubo un problema. Reinicia el dispositivo conectado", Toast.LENGTH_SHORT).show();
                         onNavigateToHome()
                         reintentarProceso()
                            },
