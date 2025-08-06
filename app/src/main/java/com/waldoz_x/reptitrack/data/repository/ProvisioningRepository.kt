@@ -156,7 +156,7 @@ class ProvisioningRepository @Inject constructor(
                    * redirigir al usuario a otra pantalla, etc. */
 
                     _deviceDisconnected.value = true
-                    Log.e("ProvisioningRepo", " Se ha desconectado el dispositivo")
+                    Log.e("ProvisioningRepo", "Se ha desconectado el dispositivo")
 
         }
     }
@@ -299,7 +299,7 @@ class ProvisioningRepository @Inject constructor(
 
                 // Se llama si ocurre cualquier otro error general durante el proceso de provisioning.
                 override fun onProvisioningFailed(e: Exception?) {
-                    val errorMessage = e?.message ?: "Provisioning falló"
+                    val errorMessage = e?.message ?: "Error en la configuración"
                     _provisioningError.value = errorMessage
                     cont.resumeWith(Result.failure(Exception(errorMessage)))
                 }
@@ -314,7 +314,7 @@ class ProvisioningRepository @Inject constructor(
         val round = _provisioningRound.value
 
         // Generamos un ID único para el ESP32 basado en la ronda
-        val espId = "Esp32_$round"
+        val espId = "esp0$round"
 
         val jsonObj = JSONObject().apply {
             put("userId", userId)
@@ -336,13 +336,14 @@ class ProvisioningRepository @Inject constructor(
     suspend fun sendMqttConfig() {
         // JSON con las credenciales hardcodeadas
         val jsonObj = org.json.JSONObject().apply {
-            put("broker", "ssl://bde98a85f86a454891057738db2eb24c.s1.eu.hivemq.cloud:8883")
+            put("broker", "mqtts://bda98a85f86a454891057738db2eb24c.s1.eu.hivemq.cloud:8883")
             put("username", "dev_Android")
             put("password", "REXvALDO23")
+
         }
 
         val jsonString = jsonObj.toString()
-        android.util.Log.i("ProvisioningRepo", "Enviando configuración MQTT JSON: $jsonString")
+        Log.i("ProvisioningRepo", "Enviando configuración MQTT JSON: $jsonString")
 
         val jsonData = jsonString.toByteArray(Charsets.UTF_8)
 
