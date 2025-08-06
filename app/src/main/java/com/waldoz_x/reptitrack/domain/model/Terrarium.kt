@@ -1,13 +1,10 @@
 package com.waldoz_x.reptitrack.domain.model
 
-// Modelo de dominio para un Terrario.
-// Contiene todos los datos relevantes para la lógica de negocio,
-// incluyendo el estado de actuadores y las últimas lecturas de sensores.
 data class Terrarium(
     val id: String = "", // ID único del terrario (ej. ID de documento de Firestore)
     val name: String = "Nuevo Terrario", // Nombre del terrario
     val description: String = "", // Descripción opcional
-    val imageUrl: String? = null, // URL de la imagen del terrario (opcional)
+    val imageResId: Int? = null, // <-- Añadido para soportar drawables locales
 
     // Estado de los Actuadores (dispositivos de control)
     val waterPumpActive: Boolean = false, // Bomba de Agua
@@ -17,6 +14,10 @@ data class Terrarium(
     val light2Active: Boolean = false,    // Foco 2
     val light3Active: Boolean = false,    // Foco 3
     val heatPlate1Active: Boolean = false, // Placa de Calor 1
+
+    // Nuevo: Estado del dispensador de comida
+    val foodDispenserActive: Boolean = false, // Dispensador de comida (encendido/apagado)
+    val foodDispenserLoads: Int = 5, // Cargas restantes (máximo 5, mínimo 0)
 
     // Últimas lecturas de Sensores (para la vista de resumen en Home)
     // Usamos Float? para permitir valores nulos si la lectura no está disponible

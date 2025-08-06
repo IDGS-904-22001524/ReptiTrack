@@ -198,11 +198,136 @@ class HomeViewModel @Inject constructor(
             hiveMqttClient.disconnect()
         }
     }
+
+    /**
+     * Crea un nuevo terrario en Firestore con la estructura predefinida.
+     * @param newTerrariumName El nombre del nuevo terrario.
+     */
+    fun createTerrarium(newTerrariumName: String) {
+        val userId = auth.currentUser?.uid
+        if (userId == null) {
+            _uiState.value = HomeUiState.Error("No hay usuario autenticado para crear terrarios.")
+            return
+        }
+        viewModelScope.launch {
+            try {
+                // Estructura base del terrario, similar al JSON que diste
+                val terrariumId = firestore.collection("usuarios").document(userId)
+                    .collection("terrarios").document().id
+
+                val terrariumData = hashMapOf(
+                    "nombre" to newTerrariumName,
+                    "dispositivos" to hashMapOf<String, Any>(
+                        "esp01" to hashMapOf(
+                            "sensores" to hashMapOf(
+                                "pzem_01" to hashMapOf(
+                                    "lecturas" to hashMapOf<String, Any>()
+                                )
+                            ),
+                            "actuadores" to hashMapOf(
+                                "dispensador" to hashMapOf(
+                                    "programacion" to hashMapOf(
+                                        "compartimientos" to hashMapOf(
+                                            "comp_01" to hashMapOf(
+                                                "fecha_programada" to "",
+                                                "dispensado" to false,
+                                                "manual" to false
+                                            ),
+                                            "comp_02" to hashMapOf(
+                                                "fecha_programada" to "",
+                                                "dispensado" to false,
+                                                "manual" to false
+                                            ),
+                                            "comp_03" to hashMapOf(
+                                                "fecha_programada" to "",
+                                                "dispensado" to false,
+                                                "manual" to false
+                                            ),
+                                            "comp_04" to hashMapOf(
+                                                "fecha_programada" to "",
+                                                "dispensado" to false,
+                                                "manual" to false
+                                            ),
+                                            "comp_05" to hashMapOf(
+                                                "fecha_programada" to "",
+                                                "dispensado" to false,
+                                                "manual" to false
+                                            )
+                                        )
+                                    )
+                                )
+                            )
+                        ),
+                        "esp02" to hashMapOf(
+                            "sensores" to hashMapOf(
+                                "dht_01" to hashMapOf("lecturas" to hashMapOf<String, Any>()),
+                                "dht_02" to hashMapOf("lecturas" to hashMapOf<String, Any>()),
+                                "dht_03" to hashMapOf("lecturas" to hashMapOf<String, Any>()),
+                                "dht_04" to hashMapOf("lecturas" to hashMapOf<String, Any>()),
+                                "ds18b20_01" to hashMapOf("lecturas" to hashMapOf<String, Any>()),
+                                "ds18b20_02" to hashMapOf("lecturas" to hashMapOf<String, Any>()),
+                                "ds18b20_03" to hashMapOf("lecturas" to hashMapOf<String, Any>()),
+                                "ds18b20_04" to hashMapOf("lecturas" to hashMapOf<String, Any>())
+                            ),
+                            "actuadores" to hashMapOf(
+                                "bomba" to hashMapOf(
+                                    "activo" to false,
+                                    "manual" to false,
+                                    "programacion" to hashMapOf(
+                                        "evento_001" to hashMapOf(
+                                            "fecha_programada" to "",
+                                            "activado" to false,
+                                            "manual" to false,
+                                            "duracion_segundos" to 30
+                                        ),
+                                        "evento_002" to hashMapOf(
+                                            "fecha_programada" to "",
+                                            "activado" to false,
+                                            "manual" to false,
+                                            "duracion_segundos" to 45
+                                        )
+                                    )
+                                ),
+                                "focos" to hashMapOf(
+                                    "activo" to false,
+                                    "manual" to false,
+                                    "programacion" to hashMapOf(
+                                        "foco_001" to hashMapOf(
+                                            "fecha_encendido" to "",
+                                            "fecha_apagado" to "",
+                                            "encendido" to false,
+                                            "manual" to false
+                                        ),
+                                        "foco_002" to hashMapOf(
+                                            "fecha_encendido" to "",
+                                            "fecha_apagado" to "",
+                                            "encendido" to false,
+                                            "manual" to false
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+
+                val terrariumsCollection = firestore.collection("usuarios")
+                    .document(userId)
+                    .collection("terrarios")
+
+                terrariumsCollection.document(terrariumId).set(terrariumData).await()
+
+                // Recarga la lista de terrarios después de crear uno nuevo
+                loadTerrariums(userId)
+            } catch (e: Exception) {
+                Log.e("HomeViewModel", "Error al crear terrario: ${e.message}", e)
+                _uiState.value = HomeUiState.Error("No se pudo crear el terrario: ${e.localizedMessage ?: "Error desconocido"}")
+            }
+        }
+    }
 }
 
-/**
- * Clases selladas para representar los diferentes estados de la UI de la pantalla de inicio.
- */
+// Mantén aquí la definición de HomeUiState y UserData.
 sealed class HomeUiState {
     object Loading : HomeUiState()
     data class Success(val terrariums: List<Terrarium>) : HomeUiState()

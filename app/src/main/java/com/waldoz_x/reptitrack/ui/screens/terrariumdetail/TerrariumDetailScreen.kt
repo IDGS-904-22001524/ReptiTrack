@@ -52,6 +52,17 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.BorderStroke // Import BorderStroke
 import androidx.compose.animation.animateColorAsState // Import animateColorAsState
+import androidx.compose.foundation.Canvas // Import Canvas for drawing circles
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.border
+import androidx.compose.ui.draw.shadow
+import com.waldoz_x.reptitrack.ui.components.Dht22SensorGroupCard
+import com.waldoz_x.reptitrack.ui.components.Ds18b20SensorGroupCard
+import com.waldoz_x.reptitrack.ui.components.OtherSensorsGroupCard
+import com.waldoz_x.reptitrack.ui.components.ActuatorControlCard
+import com.waldoz_x.reptitrack.ui.components.FoodDispenserCard
+import com.waldoz_x.reptitrack.ui.components.RainSystemCard
 
 // Definition of filter categories
 enum class TerrariumCategory(val displayName: String) {
@@ -59,6 +70,7 @@ enum class TerrariumCategory(val displayName: String) {
     SENSORS("Sensores"),
     LIGHTS("Iluminación"),
     CLIMATE_WATER("Clima y Agua"),
+    RAIN_SYSTEM("Sistema de Lluvia"), // Nueva categoría
     OTHER_SENSORS("Otros Sensores")
 }
 
@@ -66,10 +78,10 @@ enum class TerrariumCategory(val displayName: String) {
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun TerrariumDetailScreen(
-    terrariumId: String, // Receives the terrarium ID
+    terrariumId: String,
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: TerrariumDetailViewModel = hiltViewModel() // Inject the ViewModel
+    viewModel: TerrariumDetailViewModel = hiltViewModel()
 ) {
     // Observe terrarium state from the ViewModel
     val terrariumState by viewModel.terrariumState.collectAsState()
@@ -109,6 +121,7 @@ fun TerrariumDetailScreen(
     } else "N/A"
 
     val mainTemperature = currentSensorData["dht22_1_temperature"] ?: currentSensorData["ds18b20_1_temperature"] ?: "N/A"
+    val lastUpdatedText = currentSensorData["lastUpdated"] ?: "N/A"
 
     // --- Logic for dynamic background (Day/Night) ---
     var isDayTime by remember { mutableStateOf(isCurrentlyDayTime()) }
@@ -391,6 +404,41 @@ fun TerrariumDetailScreen(
                                 }
                             }
 
+                            // Last Updated Card (New addition for better visibility)
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 16.dp)
+                                    .animateContentSize(animationSpec = tween(durationMillis = 300)),
+                                shape = RoundedCornerShape(16.dp),
+                                elevation = CardDefaults.cardElevation(2.dp),
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFF607D8B).copy(alpha = 0.6f)) // Lighter transparent blue-grey
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.outline_mode_fan_24), // Using a clock icon
+                                        contentDescription = "Última Actualización",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Última Actualización: $lastUpdatedText",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color.White,
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                            }
+
+
                             // Filter Section
                             Spacer(modifier = Modifier.height(8.dp))
                             // Consider externalizing this string to strings.xml
@@ -406,230 +454,203 @@ fun TerrariumDetailScreen(
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 TerrariumCategory.values().forEach { category ->
-                                    FilterChip(
+                                    CategoryFilterChip(
+                                        category = category,
                                         selected = selectedCategory == category,
-                                        onClick = { selectedCategory = category },
-                                        label = { Text(category.displayName, color = if (selectedCategory == category) Color.White else Color.LightGray) }, // Text color adjusted
-                                        colors = FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor = Color(0xFF4CAF50).copy(alpha = 0.8f), // Green for selected with transparency
-                                            selectedLabelColor = Color.White, // White text for selected
-                                            containerColor = Color(0xFF2D3A4B).copy(alpha = 0.7f), // Darker, transparent blue-grey
-                                            labelColor = Color.LightGray // Text color for unselected
-                                        ),
-                                        border = if (selectedCategory == category) null else BorderStroke(
-                                            width = 1.dp,
-                                            color = Color(0xFF4CAF50).copy(alpha = 0.4f) // More subtle green border
-                                        )
+                                        onClick = { selectedCategory = category }
                                     )
                                 }
                             }
                             Spacer(modifier = Modifier.height(16.dp))
 
-                            // Dynamic sections based on filter
-                            if (selectedCategory == TerrariumCategory.ALL || selectedCategory == TerrariumCategory.SENSORS) {
-                                TerrariumSection(title = "Sensores de Temperatura y Humedad") { // Consider externalizing
-                                    // Consider externalizing this string to strings.xml
+                            // --- Sensor Data Display (Refactored) ---
+                            // DHT22 Sensors Group
+                            AnimatedVisibility(
+                                visible = selectedCategory == TerrariumCategory.ALL || selectedCategory == TerrariumCategory.SENSORS || selectedCategory == TerrariumCategory.CLIMATE_WATER,
+                                enter = fadeIn(animationSpec = tween(durationMillis = 300)),
+                                exit = fadeOut(animationSpec = tween(durationMillis = 300))
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Text(
-                                        text = "Monitoreo de ambiente interno por zonas.",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = Color.LightGray, // Text color light gray
-                                        modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
+                                        text = "Temperatura Hambiente",
+                                        style = MaterialTheme.typography.titleLarge,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White,
+                                        modifier = Modifier.padding(vertical = 8.dp)
                                     )
-                                    FlowRow(
+                                    // Cuadrícula 2x2 para los sensores DHT22
+                                    Column(
                                         modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                                        maxItemsInEachRow = 2
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
-                                        SensorCard(label = getSensorDisplayName("dht22_1_temperature"), value = currentSensorData["dht22_1_temperature"] ?: "N/A", icon = getSensorIcon("temperature"), modifier = Modifier.weight(1f))
-                                        SensorCard(label = getSensorDisplayName("dht22_1_humidity"), value = currentSensorData["dht22_1_humidity"] ?: "N/A", icon = getSensorIcon("humidity"), modifier = Modifier.weight(1f))
-                                        SensorCard(label = getSensorDisplayName("dht22_2_temperature"), value = currentSensorData["dht22_2_temperature"] ?: "N/A", icon = getSensorIcon("temperature"), modifier = Modifier.weight(1f))
-                                        SensorCard(label = getSensorDisplayName("dht22_2_humidity"), value = currentSensorData["dht22_2_humidity"] ?: "N/A", icon = getSensorIcon("humidity"), modifier = Modifier.weight(1f))
-                                        SensorCard(label = getSensorDisplayName("dht22_3_temperature"), value = currentSensorData["dht22_3_temperature"] ?: "N/A", icon = getSensorIcon("temperature"), modifier = Modifier.weight(1f))
-                                        SensorCard(label = getSensorDisplayName("dht22_3_humidity"), value = currentSensorData["dht22_3_humidity"] ?: "N/A", icon = getSensorIcon("humidity"), modifier = Modifier.weight(1f))
-                                        SensorCard(label = getSensorDisplayName("dht22_4_temperature"), value = currentSensorData["dht22_4_temperature"] ?: "N/A", icon = getSensorIcon("temperature"), modifier = Modifier.weight(1f))
-                                        SensorCard(label = getSensorDisplayName("dht22_4_humidity"), value = currentSensorData["dht22_4_humidity"] ?: "N/A", icon = getSensorIcon("humidity"), modifier = Modifier.weight(1f))
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceEvenly
+                                        ) {
+                                            Dht22SensorGroupCard(sensorNumber = 1, sensorData = currentSensorData)
+                                            Dht22SensorGroupCard(sensorNumber = 2, sensorData = currentSensorData)
+                                        }
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceEvenly
+                                        ) {
+                                            Dht22SensorGroupCard(sensorNumber = 3, sensorData = currentSensorData)
+                                            Dht22SensorGroupCard(sensorNumber = 4, sensorData = currentSensorData)
+                                        }
                                     }
+                                    Spacer(modifier = Modifier.height(16.dp))
                                 }
-                                Spacer(modifier = Modifier.height(20.dp))
                             }
 
-                            if (selectedCategory == TerrariumCategory.ALL || selectedCategory == TerrariumCategory.SENSORS) {
-                                TerrariumSection(title = "Sensores de Temperatura del Suelo") { // Consider externalizing
-                                    // Consider externalizing this string to strings.xml
+                            // DS18B20 Sensors Group y Otros Sensores
+                            AnimatedVisibility(
+                                visible = selectedCategory == TerrariumCategory.ALL || selectedCategory == TerrariumCategory.SENSORS || selectedCategory == TerrariumCategory.OTHER_SENSORS,
+                                enter = fadeIn(animationSpec = tween(durationMillis = 300)),
+                                exit = fadeOut(animationSpec = tween(durationMillis = 300))
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Text(
-                                        text = "Lecturas de temperatura en diferentes puntos del sustrato.",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = Color.LightGray, // Text color light gray
-                                        modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
+                                        text = "Temperatura del Suelo",
+                                        style = MaterialTheme.typography.titleLarge,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White,
+                                        modifier = Modifier.padding(vertical = 8.dp)
                                     )
-                                    FlowRow(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                                        maxItemsInEachRow = 2
-                                    ) {
-                                        SensorCard(label = getSensorDisplayName("ds18b20_1_temperature"), value = currentSensorData["ds18b20_1_temperature"] ?: "N/A", icon = getSensorIcon("temperature"), modifier = Modifier.weight(1f))
-                                        SensorCard(label = getSensorDisplayName("ds18b20_2_temperature"), value = currentSensorData["ds18b20_2_temperature"] ?: "N/A", icon = getSensorIcon("temperature"), modifier = Modifier.weight(1f))
-                                        SensorCard(label = getSensorDisplayName("ds18b20_3_temperature"), value = currentSensorData["ds18b20_3_temperature"] ?: "N/A", icon = getSensorIcon("temperature"), modifier = Modifier.weight(1f))
-                                        SensorCard(label = getSensorDisplayName("ds18b20_4_temperature"), value = currentSensorData["ds18b20_4_temperature"] ?: "N/A", icon = getSensorIcon("temperature"), modifier = Modifier.weight(1f))
-                                        SensorCard(label = getSensorDisplayName("ds18b20_5_temperature"), value = currentSensorData["ds18b20_5_temperature"] ?: "N/A", icon = getSensorIcon("temperature"), modifier = Modifier.weight(1f))
-                                    }
+                                    Ds18b20SensorGroupCard(sensorData = currentSensorData)
+                                    Spacer(modifier = Modifier.height(16.dp))
+
+                                    Text(
+                                        text = "Otros Sensores",
+                                        style = MaterialTheme.typography.titleLarge,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White,
+                                        modifier = Modifier.padding(vertical = 8.dp)
+                                    )
+                                    OtherSensorsGroupCard(sensorData = currentSensorData)
+                                    Spacer(modifier = Modifier.height(16.dp))
                                 }
-                                Spacer(modifier = Modifier.height(20.dp))
                             }
 
-                            if (selectedCategory == TerrariumCategory.ALL || selectedCategory == TerrariumCategory.OTHER_SENSORS) {
-                                TerrariumSection(title = "Otros Sensores") { // Consider externalizing
-                                    // Consider externalizing this string to strings.xml
+                            // Actuator Controls
+                            AnimatedVisibility(
+                                visible = selectedCategory == TerrariumCategory.ALL || selectedCategory == TerrariumCategory.LIGHTS || selectedCategory == TerrariumCategory.CLIMATE_WATER,
+                                enter = fadeIn(animationSpec = tween(durationMillis = 300)),
+                                exit = fadeOut(animationSpec = tween(durationMillis = 300))
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Text(
-                                        text = "Información adicional del entorno del terrario.",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = Color.LightGray, // Text color light gray
-                                        modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
+                                        text = "Controles de Actuadores",
+                                        style = MaterialTheme.typography.titleLarge,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White,
+                                        modifier = Modifier.padding(vertical = 8.dp)
                                     )
-                                    FlowRow(
+                                    // Cuadrícula de actuadores en 2 columnas
+                                    val actuatorList = currentActuatorStates
+                                        .filterKeys { it != "water_pump_active" }
+                                        .toList()
+                                    Column(
                                         modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                                        maxItemsInEachRow = 2
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
-                                        SensorCard(label = getSensorDisplayName("hc_sr04_1_distance"), value = currentSensorData["hc_sr04_1_distance"] ?: "N/A", icon = getSensorIcon("distance"), modifier = Modifier.weight(1f))
-                                        SensorCard(label = getSensorDisplayName("pzem_1_power"), value = currentSensorData["pzem_1_power"] ?: "N/A", icon = getSensorIcon("power"), modifier = Modifier.weight(1f))
+                                        actuatorList.chunked(2).forEach { rowActuators ->
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceEvenly
+                                            ) {
+                                                rowActuators.forEach { (key, isActive) ->
+                                                    ActuatorControlCard(
+                                                        actuatorKey = key,
+                                                        isActive = isActive,
+                                                        onToggle = { newState ->
+                                                            if (useMockData) {
+                                                                mockActuatorStates = mockActuatorStates.toMutableMap().apply {
+                                                                    this[key] = newState
+                                                                }
+                                                            } else {
+                                                                currentTerrarium?.let { terrarium ->
+                                                                    viewModel.toggleActuator(terrarium.id, key, newState)
+                                                                }
+                                                            }
+                                                        }
+                                                    )
+                                                }
+                                            }
+                                        }
                                     }
                                 }
-                                Spacer(modifier = Modifier.height(20.dp))
                             }
 
-                            if (selectedCategory == TerrariumCategory.ALL || selectedCategory == TerrariumCategory.LIGHTS) {
-                                TerrariumSection(title = "Actuadores de Iluminación") { // Consider externalizing
-                                    // Consider externalizing this string to strings.xml
-                                    Text(
-                                        text = "Control de las fuentes de luz del terrario.",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = Color.LightGray, // Text color light gray
-                                        modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
+                            // Nueva sección destacada para el dispensador de comida
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 16.dp)
+                                    .animateContentSize(animationSpec = tween(durationMillis = 300)),
+                                shape = RoundedCornerShape(24.dp),
+                                elevation = CardDefaults.cardElevation(8.dp),
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFC107).copy(alpha = 0.8f)) // Color amarillo para destacar
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(20.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    FoodDispenserCard(
+                                        isActive = currentActuatorStates["food_dispenser_active"] ?: false,
+                                        loads = currentSensorData["food_dispenser_loads"]?.toIntOrNull() ?: 0,
+                                        onDispense = { newState ->
+                                            if (useMockData) {
+                                                mockActuatorStates = mockActuatorStates.toMutableMap().apply {
+                                                    this["food_dispenser_active"] = newState
+                                                }
+                                            } else {
+                                                currentTerrarium?.let { terrarium ->
+                                                    viewModel.toggleActuator(terrarium.id, "food_dispenser_active", newState)
+                                                }
+                                            }
+                                        },
+                                        onRecharge = {
+                                            // Aquí puedes poner la lógica para recargar el dispensador.
+                                            // Por ejemplo, podrías mostrar un diálogo, enviar un comando, etc.
+                                            // Si no tienes lógica aún, puedes dejarlo vacío.
+                                        }
                                     )
-                                    FlowRow(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                                        maxItemsInEachRow = 2
-                                    ) {
-                                        ActuatorCard(
-                                            label = getActuatorDisplayName("light1_active"),
-                                            isActive = currentActuatorStates["light1_active"] ?: false,
-                                            onToggle = { newState ->
-                                                if (useMockData) {
-                                                    mockActuatorStates = mockActuatorStates.toMutableMap().apply { this["light1_active"] = newState }
-                                                } else {
-                                                    viewModel.toggleActuator(terrariumId, "light1_active", newState)
-                                                }
-                                            },
-                                            icon = getActuatorIcon("light"),
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                        ActuatorCard(
-                                            label = getActuatorDisplayName("light2_active"),
-                                            isActive = currentActuatorStates["light2_active"] ?: false,
-                                            onToggle = { newState ->
-                                                if (useMockData) {
-                                                    mockActuatorStates = mockActuatorStates.toMutableMap().apply { this["light2_active"] = newState }
-                                                } else {
-                                                    viewModel.toggleActuator(terrariumId, "light2_active", newState)
-                                                }
-                                            },
-                                            icon = getActuatorIcon("light"),
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                        ActuatorCard(
-                                            label = getActuatorDisplayName("light3_active"),
-                                            isActive = currentActuatorStates["light3_active"] ?: false,
-                                            onToggle = { newState ->
-                                                if (useMockData) {
-                                                    mockActuatorStates = mockActuatorStates.toMutableMap().apply { this["light3_active"] = newState }
-                                                } else {
-                                                    viewModel.toggleActuator(terrariumId, "light3_active", newState)
-                                                }
-                                            },
-                                            icon = getActuatorIcon("light"),
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                    }
                                 }
-                                Spacer(modifier = Modifier.height(20.dp))
                             }
 
-                            if (selectedCategory == TerrariumCategory.ALL || selectedCategory == TerrariumCategory.CLIMATE_WATER) {
-                                TerrariumSection(title = "Actuadores de Clima y Agua") { // Consider externalizing
-                                    // Consider externalizing this string to strings.xml
+                            // Sistema de Lluvia (Rain System)
+                            AnimatedVisibility(
+                                visible = selectedCategory == TerrariumCategory.ALL || selectedCategory == TerrariumCategory.RAIN_SYSTEM,
+                                enter = fadeIn(animationSpec = tween(durationMillis = 300)),
+                                exit = fadeOut(animationSpec = tween(durationMillis = 300))
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Text(
-                                        text = "Control de las condiciones ambientales y suministro de agua.",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = Color.LightGray, // Text color light gray
-                                        modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
+                                        text = "Sistema de Lluvia",
+                                        style = MaterialTheme.typography.titleLarge,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White,
+                                        modifier = Modifier.padding(vertical = 8.dp)
                                     )
-                                    FlowRow(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                                        maxItemsInEachRow = 2
-                                    ) {
-                                        ActuatorCard(
-                                            label = getActuatorDisplayName("water_pump_active"),
-                                            isActive = currentActuatorStates["water_pump_active"] ?: false,
-                                            onToggle = { newState ->
-                                                if (useMockData) {
-                                                    mockActuatorStates = mockActuatorStates.toMutableMap().apply { this["water_pump_active"] = newState }
-                                                } else {
-                                                    viewModel.toggleActuator(terrariumId, "water_pump_active", newState)
+                                    RainSystemCard(
+                                        isActive = currentActuatorStates["water_pump_active"] ?: false,
+                                        waterDistance = currentSensorData["hc_sr04_1_distance"]?.replace(" cm", "")?.toFloatOrNull(),
+                                        onToggle = { newState ->
+                                            if (useMockData) {
+                                                mockActuatorStates = mockActuatorStates.toMutableMap().apply {
+                                                    this["water_pump_active"] = newState
                                                 }
-                                            },
-                                            icon = getActuatorIcon("water_pump"),
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                        ActuatorCard(
-                                            label = getActuatorDisplayName("fan1_active"),
-                                            isActive = currentActuatorStates["fan1_active"] ?: false,
-                                            onToggle = { newState ->
-                                                if (useMockData) {
-                                                    mockActuatorStates = mockActuatorStates.toMutableMap().apply { this["fan1_active"] = newState }
-                                                } else {
-                                                    viewModel.toggleActuator(terrariumId, "fan1_active", newState)
+                                            } else {
+                                                currentTerrarium?.let { terrarium ->
+                                                    viewModel.toggleActuator(terrarium.id, "water_pump_active", newState)
                                                 }
-                                            },
-                                            icon = getActuatorIcon("fan"),
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                        ActuatorCard(
-                                            label = getActuatorDisplayName("fan2_active"),
-                                            isActive = currentActuatorStates["fan2_active"] ?: false,
-                                            onToggle = { newState ->
-                                                if (useMockData) {
-                                                    mockActuatorStates = mockActuatorStates.toMutableMap().apply { this["fan2_active"] = newState }
-                                                } else {
-                                                    viewModel.toggleActuator(terrariumId, "fan2_active", newState)
-                                                }
-                                            },
-                                            icon = getActuatorIcon("fan"),
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                        ActuatorCard(
-                                            label = getActuatorDisplayName("heat_plate1_active"),
-                                            isActive = currentActuatorStates["heat_plate1_active"] ?: false,
-                                            onToggle = { newState ->
-                                                if (useMockData) {
-                                                    mockActuatorStates = mockActuatorStates.toMutableMap().apply { this["heat_plate1_active"] = newState }
-                                                } else {
-                                                    viewModel.toggleActuator(terrariumId, "heat_plate1_active", newState)
-                                                }
-                                            },
-                                            icon = getActuatorIcon("heat_plate"),
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                    }
+                                            }
+                                        }
+                                    )
+                                    Spacer(modifier = Modifier.height(16.dp))
                                 }
-                                Spacer(modifier = Modifier.height(20.dp))
                             }
                         }
                     }
@@ -639,233 +660,117 @@ fun TerrariumDetailScreen(
     }
 }
 
-// Composable for the sensor card
+
+// Mejoras en los filtros: iconos y colores por categoría
 @Composable
-fun SensorCard(label: String, value: String, icon: Painter, modifier: Modifier = Modifier) {
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(140.dp) // Fixed height for grid consistency
-            .animateContentSize(animationSpec = tween(durationMillis = 300)),
-        shape = RoundedCornerShape(24.dp), // Increased rounded corners
-        elevation = CardDefaults.cardElevation(4.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF2D3A4B).copy(alpha = 0.7f)) // Darker, transparent blue-grey
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Icon(
-                painter = icon,
-                contentDescription = label, // Consider externalizing
-                tint = Color.White, // Icon color white
-                modifier = Modifier.size(40.dp)
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = label, // Consider externalizing
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Medium,
-                color = Color.LightGray, // Text color light gray
-                textAlign = TextAlign.Center,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = value,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = if (value == "N/A") Color.LightGray.copy(alpha = 0.6f) else Color.White, // Text color white, light gray for N/A
-                textAlign = TextAlign.Center
-            )
-        }
+fun CategoryFilterChip(
+    category: TerrariumCategory,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    val icon: Painter = when (category) {
+        TerrariumCategory.ALL -> painterResource(id = R.drawable.ic_baseline_cloud_24)
+        TerrariumCategory.SENSORS -> painterResource(id = R.drawable.ic_baseline_thermostat_24)
+        TerrariumCategory.LIGHTS -> painterResource(id = R.drawable.baseline_lightbulb_24)
+        TerrariumCategory.CLIMATE_WATER -> painterResource(id = R.drawable.ic_outline_water_pump_24)
+        TerrariumCategory.RAIN_SYSTEM -> painterResource(id = R.drawable.ic_outline_water_pump_24) // Usa el mismo ícono o uno diferente si tienes
+        TerrariumCategory.OTHER_SENSORS -> painterResource(id = R.drawable.ic_outline_settings_power_24)
     }
-}
+    val chipColor = when (category) {
+        TerrariumCategory.ALL -> Color(0xFF607D8B)
+        TerrariumCategory.SENSORS -> Color(0xFF90CAF9)
+        TerrariumCategory.LIGHTS -> Color(0xFFFFF176)
+        TerrariumCategory.CLIMATE_WATER -> Color(0xFF80DEEA)
+        TerrariumCategory.RAIN_SYSTEM -> Color(0xFF4FC3F7) // Azul para el sistema de lluvia
+        TerrariumCategory.OTHER_SENSORS -> Color(0xFFA5D6A7)
+    }
 
-// Composable for the actuator card
-@Composable
-fun ActuatorCard(label: String, isActive: Boolean, onToggle: (Boolean) -> Unit, icon: Painter, modifier: Modifier = Modifier) {
-    val cardBackgroundColor by animateColorAsState(
-        targetValue = when {
-            label == "Bomba Agua" && isActive -> Color(0xFF2196F3).copy(alpha = 0.9f) // Blue for active Water Pump with higher opacity
-            label == "Luz Día" && isActive -> Color(0xFFFF9800).copy(alpha = 0.9f) // Orange for active Day Light with higher opacity
-            label == "Luz Noche" && isActive -> Color(0xFF3F51B5).copy(alpha = 0.9f) // Dark blue for active Night Light with higher opacity
-            label == "Luz UV" && isActive -> Color(0xFF9C27B0).copy(alpha = 0.9f) // Purple for active UV Light with higher opacity
-            label == "Placa Calor" && isActive -> Color(0xFFF44336).copy(alpha = 0.9f) // Red for active Heat Plate with higher opacity
-            isActive -> Color(0xFF81C784).copy(alpha = 0.9f) // Light green for other active ones (e.g., Fans) with higher opacity
-            else -> Color(0xFF2D3A4B).copy(alpha = 0.7f) // Darker, transparent blue-grey for inactive
-        },
-        animationSpec = tween(durationMillis = 300)
-    )
-    val contentColor by animateColorAsState(
-        targetValue = Color.White, // White text for all states
-        animationSpec = tween(durationMillis = 300)
-    )
-    val switchTrackColor by animateColorAsState(
-        targetValue = if (isActive) cardBackgroundColor else Color(0xFF616161), // Use card background when active, grey when inactive
-        animationSpec = tween(durationMillis = 300)
-    )
-    val switchThumbColor by animateColorAsState(
-        targetValue = Color.Black, // Changed thumb color to black for both states
-        animationSpec = tween(durationMillis = 300)
-    )
+    // Animaciones para el borde y sombra
+    val borderWidth by animateDpAsState(targetValue = if (selected) 3.dp else 1.dp)
+    val borderColor by animateColorAsState(targetValue = if (selected) chipColor else chipColor.copy(alpha = 0.5f))
+    val shadowElevation by animateDpAsState(targetValue = if (selected) 8.dp else 0.dp)
+    val backgroundColor by animateColorAsState(targetValue = if (selected) chipColor.copy(alpha = 0.95f) else chipColor.copy(alpha = 0.7f))
 
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(160.dp) // Fixed height for grid consistency
-            .animateContentSize(animationSpec = tween(durationMillis = 300)),
-        shape = RoundedCornerShape(24.dp), // Increased rounded corners
-        elevation = CardDefaults.cardElevation(4.dp),
-        colors = CardDefaults.cardColors(containerColor = cardBackgroundColor)
-    ) {
-        Box( // Use Box for more flexible positioning
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp), // General card padding
-            contentAlignment = Alignment.Center // Center content within the Box
-        ) {
-            // Icon in the top-left corner
-            Icon(
-                painter = icon,
-                contentDescription = label, // Consider externalizing
-                tint = contentColor,
-                modifier = Modifier
-                    .size(48.dp) // Larger icon
-                    .align(Alignment.TopStart) // Aligned top-left
-            )
-
-            // Text content (label and state) in the bottom-left
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomStart) // Aligned bottom-left
-                    .fillMaxWidth(0.7f) // Occupy 70% of the width to leave space for the switch
-            ) {
-                Text(
-                    text = label, // Consider externalizing
-                    style = MaterialTheme.typography.titleMedium, // Larger and more prominent text
-                    fontWeight = FontWeight.Bold,
-                    color = contentColor,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-                // Consider externalizing these strings to strings.xml
-                Text(
-                    text = if (isActive) "Activo" else "Inactivo",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = contentColor.copy(alpha = 0.7f) // More subtle color for the state
-                )
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(painter = icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(category.displayName, color = Color.White)
             }
-
-            // Switch in the top-right corner
-            Switch(
-                checked = isActive,
-                onCheckedChange = onToggle,
-                modifier = Modifier
-                    .align(Alignment.TopEnd) // Aligned top-right
-                    .size(56.dp), // Larger size for the switch
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = switchThumbColor,
-                    checkedTrackColor = switchTrackColor,
-                    uncheckedThumbColor = switchThumbColor,
-                    uncheckedTrackColor = switchTrackColor
-                )
-            )
-        }
-    }
-}
-
-// Composable for sections
-@Composable
-fun TerrariumSection(title: String, content: @Composable () -> Unit) {
-    Column(
+        },
         modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 12.dp, bottom = 8.dp)
-    ) {
-        Text(
-            text = title, // Consider externalizing
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.ExtraBold,
-            color = Color.White, // Text color white
-            modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp)
-        )
-        content()
-    }
+            .shadow(shadowElevation, RoundedCornerShape(50))
+            .border(borderWidth, borderColor, RoundedCornerShape(50)),
+        colors = FilterChipDefaults.filterChipColors(
+            selectedContainerColor = backgroundColor,
+            selectedLabelColor = Color.White,
+            containerColor = backgroundColor,
+            labelColor = Color.White
+        ),
+        border = null // El borde se maneja por el modifier
+    )
 }
 
-// Helper functions to get user-friendly display names
+
+// Helper function to get health color based on value and type
 @Composable
-fun getSensorDisplayName(key: String): String {
-    // Consider externalizing all these strings to strings.xml
-    return when (key) {
-        "dht22_1_temperature" -> "Temp. Ambiente 1"
-        "dht22_1_humidity" -> "Hum. Ambiente 1"
-        "dht22_2_temperature" -> "Temp. Ambiente 2"
-        "dht22_2_humidity" -> "Hum. Ambiente 2"
-        "dht22_3_temperature" -> "Temp. Ambiente 3"
-        "dht22_3_humidity" -> "Hum. Ambiente 3"
-        "dht22_4_temperature" -> "Temp. Ambiente 4"
-        "dht22_4_humidity" -> "Hum. Ambiente 4"
-        "ds18b20_1_temperature" -> "Temp. Suelo 1"
-        "ds18b20_2_temperature" -> "Temp. Suelo 2"
-        "ds18b20_3_temperature" -> "Temp. Suelo 3"
-        "ds18b20_4_temperature" -> "Temp. Suelo 4"
-        "ds18b20_5_temperature" -> "Temp. Suelo 5"
-        "hc_sr04_1_distance" -> "Nivel Agua"
-        "pzem_1_power" -> "Consumo Eléctrico"
-        else -> key.replace("_", " ").replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+fun getHealthColor(value: Float?, sensorType: String): Color {
+    if (value == null) return Color.LightGray.copy(alpha = 0.6f) // For N/A values
+
+    return when (sensorType) {
+        "temperature" -> {
+            when {
+                value < 20.0f -> Color(0xFFADD8E6) // Light Blue (Cold)
+                value > 30.0f -> Color(0xFFFFA07A) // Light Salmon (Hot)
+                else -> Color(0xFF90EE90) // Light Green (Normal)
+            }
+        }
+        "humidity" -> {
+            when {
+                value < 50.0f -> Color(0xFFFFA07A) // Light Salmon (Dry)
+                value > 80.0f -> Color(0xFFADD8E6) // Light Blue (Humid)
+                else -> Color(0xFF90EE90) // Light Green (Normal)
+            }
+        }
+        "distance" -> {
+            when {
+                value < 10.0f -> Color(0xFFFFA07A) // Light Salmon (Too close)
+                value > 50.0f -> Color(0xFFADD8E6) // Light Blue (Too far)
+                else -> Color(0xFF90EE90) // Light Green (Normal)
+            }
+        }
+        "power" -> {
+            when {
+                value > 100.0f -> Color(0xFFFFA07A) // Light Salmon (High power)
+                else -> Color(0xFF90EE90) // Light Green (Normal)
+            }
+        }
+        else -> Color.White // Default
     }
 }
 
-@Composable
-fun getActuatorDisplayName(key: String): String {
-    // Consider externalizing all these strings to strings.xml
-    return when (key) {
-        "water_pump_active" -> "Bomba Agua"
-        "fan1_active" -> "Ventilador 1"
-        "fan2_active" -> "Ventilador 2"
-        "light1_active" -> "Luz Día"
-        "light2_active" -> "Luz Noche"
-        "light3_active" -> "Luz UV"
-        "heat_plate1_active" -> "Placa Calor"
-        else -> key.replace("_", " ").replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
-    }
-}
-
-
-// Helper functions to get icons based on sensor/actuator key
-@Composable
-fun getSensorIcon(key: String): Painter {
-    // IMPORTANT! Consider adding more specific icons for each sensor type
-    // For example, a thermometer icon for temperature, a drop for humidity, etc.
-    return when {
-        key.contains("temperature") -> painterResource(id = R.drawable.ic_baseline_cloud_24) // Placeholder, look for a thermometer icon
-        key.contains("humidity") -> painterResource(id = R.drawable.ic_outline_humidity_high_24)
-        key.contains("distance") -> painterResource(id = R.drawable.ic_outline_sensors_24)
-        key.contains("power") -> painterResource(id = R.drawable.ic_outline_settings_power_24)
-        else -> painterResource(id = R.drawable.ic_baseline_info_24)
-    }
-}
 
 @Composable
-fun getActuatorIcon(key: String): Painter {
-    // IMPORTANT! Consider adding more specific icons for each actuator type
-    // For example, a lightbulb icon for light, a fan for fan, etc.
-    return when {
-        key.contains("light") -> painterResource(id = R.drawable.baseline_lightbulb_24)
-        key.contains("fan") -> painterResource(id = R.drawable.outline_mode_fan_24)
-        key.contains("water_pump") -> painterResource(id = R.drawable.ic_outline_water_pump_24)
-        key.contains("heat_plate") -> painterResource(id = R.drawable.ic_outline_heat_24)
-        else -> painterResource(id = R.drawable.ic_baseline_info_24)
+fun getSensorIcon(sensorType: String): Painter {
+    return when (sensorType) {
+        "temperature" -> painterResource(id = R.drawable.ic_baseline_thermostat_24) // Placeholder, replace with actual icon
+        "humidity" -> painterResource(id = R.drawable.ic_outline_humidity_high_24) // Placeholder, replace with actual icon
+        "distance" -> painterResource(id = R.drawable.ic_outline_distance_24) // Placeholder, replace with actual icon
+        "power" -> painterResource(id = R.drawable.ic_outline_settings_power_24) // Placeholder, replace with actual icon
+        else -> painterResource(id = R.drawable.ic_baseline_cloud_24) // Generic placeholder
     }
 }
 
-// --- Functions to generate test data (Mock Data) ---
+// Helper function to determine if it's day or night (adjust hours as needed)
+fun isCurrentlyDayTime(): Boolean {
+    val currentHour = LocalTime.now().hour
+    return currentHour in 6..19 // Between 6 AM and 7 PM
+}
+
+// --- Mock Data for Previews ---
 fun createMockTerrarium(id: String): Terrarium {
     return Terrarium(
         id = id,
@@ -875,17 +780,17 @@ fun createMockTerrarium(id: String): Terrarium {
         dht22_1_humidity = 70.0f,
         dht22_2_temperature = 26.5f,
         dht22_2_humidity = 65.0f,
-        dht22_3_temperature = 24.0f,
-        dht22_3_humidity = 72.0f,
-        dht22_4_temperature = 25.5f,
-        dht22_4_humidity = 68.0f,
+        dht22_3_temperature = 19.0f, // Example of low temp
+        dht22_3_humidity = 85.0f, // Example of high humidity
+        dht22_4_temperature = 32.0f, // Example of high temp
+        dht22_4_humidity = 45.0f, // Example of low humidity
         ds18b20_1_temperature = 23.0f,
         ds18b20_2_temperature = 22.5f,
         ds18b20_3_temperature = 24.5f,
         ds18b20_4_temperature = 23.8f,
         ds18b20_5_temperature = 22.0f,
-        hc_sr04_1_distance = 15.0f,
-        pzem_1_power = 50.5f,
+        hc_sr04_1_distance = 5.0f, // Example of low distance
+        pzem_1_power = 120.0f, // Example of high power
         // All actuators OFF at start for mock
         waterPumpActive = false,
         fan1Active = false,
@@ -904,18 +809,18 @@ fun createMockSensorData(): Map<String, String> {
         "dht22_1_humidity" to "70.0%",
         "dht22_2_temperature" to "26.5°C",
         "dht22_2_humidity" to "65.0%",
-        "dht22_3_temperature" to "24.0°C",
-        "dht22_3_humidity" to "72.0%",
-        "dht22_4_temperature" to "25.5°C",
-        "dht22_4_humidity" to "68.0%",
+        "dht22_3_temperature" to "19.0°C", // Example of low temp
+        "dht22_3_humidity" to "85.0%", // Example of high humidity
+        "dht22_4_temperature" to "32.0°C", // Example of high temp
+        "dht22_4_humidity" to "45.0%", // Example of low humidity
         "ds18b20_1_temperature" to "23.0°C",
         "ds18b20_2_temperature" to "22.5°C",
         "ds18b20_3_temperature" to "24.5°C",
         "ds18b20_4_temperature" to "23.8°C",
         "ds18b20_5_temperature" to "22.0°C",
-        "hc_sr04_1_distance" to "15.0 cm",
-        "pzem_1_power" to "50.5 W",
-        "lastUpdated" to "Ahora (mock)"
+        "hc_sr04_1_distance" to "5.0 cm", // Example of low distance
+        "pzem_1_power" to "120.0 W", // Example of high power
+        "lastUpdated" to "Hace 1 minuto" // More descriptive mock timestamp
     )
 }
 
@@ -930,13 +835,6 @@ fun createMockActuatorStates(): Map<String, Boolean> {
         "light3_active" to false,
         "heat_plate1_active" to false
     )
-}
-
-// Function to determine if it's daytime or nighttime
-fun isCurrentlyDayTime(): Boolean {
-    val currentHour = LocalTime.now().hour
-    // We consider "day" from 6 AM (inclusive) to 6 PM (exclusive)
-    return currentHour >= 6 && currentHour < 18
 }
 
 

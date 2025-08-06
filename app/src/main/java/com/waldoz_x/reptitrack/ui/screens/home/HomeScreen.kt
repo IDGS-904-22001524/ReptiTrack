@@ -1,11 +1,11 @@
 package com.waldoz_x.reptitrack.ui.screens.home
 
-import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Settings
@@ -13,6 +13,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -20,9 +23,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.waldoz_x.reptitrack.R
+import com.waldoz_x.reptitrack.domain.model.Terrarium
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import com.waldoz_x.reptitrack.ui.components.TerrariumCard
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -41,7 +48,7 @@ fun HomeRoute(
     HomeScreen(
         uiState = uiState,
         onTerrariumClick = navigateToTerrariumDetail,
-        onRetryClick = viewModel::loadTerrariums,
+        onRetryClick = { viewModel.loadTerrariums() },
         isMqttConnected = isMqttConnected,
         isFirebaseConnected = isFirebaseConnected,
         currentUserData = currentUserData,
@@ -50,7 +57,40 @@ fun HomeRoute(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AddTerrariumCard(onAddClick: () -> Unit, modifier: Modifier = Modifier) {
+    Card(
+        modifier = modifier
+            .aspectRatio(1f) // Hace la tarjeta cuadrada
+            .clickable { onAddClick() },
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.1f)),
+        elevation = CardDefaults.cardElevation(4.dp)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Add,
+                contentDescription = "Añadir Terrario",
+                tint = Color.White.copy(alpha = 0.8f),
+                modifier = Modifier.size(64.dp)
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Añadir Terrario",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = Color.White.copy(alpha = 0.8f),
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun HomeScreen(
     uiState: HomeUiState,
@@ -62,6 +102,10 @@ fun HomeScreen(
     onSettingsClick: () -> Unit,
     onAddTerrariumClick: () -> Unit
 ) {
+    var showAddTerrariumDialog by remember { mutableStateOf(false) }
+    var newTerrariumName by remember { mutableStateOf("") }
+    val viewModel = hiltViewModel<HomeViewModel>()
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -76,7 +120,10 @@ fun HomeScreen(
         },
         floatingActionButton = {
             FloatingActionButton(onClick = onAddTerrariumClick) {
-                Icon(Icons.Default.Add, contentDescription = "Añadir Terrario")
+                Icon(
+                    painterResource(id = R.drawable.ic_outline_settings_power_24),
+                    contentDescription = "Configurar ESP32"
+                )
             }
         }
     ) { paddingValues ->
@@ -197,25 +244,44 @@ fun HomeScreen(
                     }
 
                     is HomeUiState.Success -> {
-                        if (uiState.terrariums.isEmpty()) {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    "No hay terrarios registrados. Toca '+' para añadir uno.",
-                                    color = Color.White.copy(alpha = 0.7f),
-                                    style = MaterialTheme.typography.bodyLarge
-                                )
+                        LazyColumn(
+                            contentPadding = PaddingValues(bottom = 16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            item {
+                                FlowRow(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.Center,
+                                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                                    maxItemsInEachRow = 2
+                                ) {
+                                    uiState.terrariums.forEach { terrarium ->
+                                        TerrariumCard(
+                                            terrarium = terrarium, // <-- Aquí pasa la instancia, no la clase
+                                            onClick = onTerrariumClick,
+                                            modifier = Modifier
+                                                .fillMaxWidth(0.5f)
+                                                .aspectRatio(1f)
+                                                .padding(horizontal = 4.dp)
+                                        )
+                                    }
+                                    // La tarjeta de añadir terrario aparece siempre al final
+                                    AddTerrariumCard(
+                                        onAddClick = { showAddTerrariumDialog = true },
+                                        modifier = Modifier
+                                            .fillMaxWidth(0.5f) // Siempre ocupa la mitad del ancho
+                                            .padding(horizontal = 4.dp)
+                                    )
+                                }
                             }
-                        } else {
-                            LazyColumn(
-                                contentPadding = PaddingValues(bottom = 16.dp)
-                            ) {
-                                items(uiState.terrariums) { terrarium ->
-                                    TerrariumCard(
-                                        terrarium = terrarium,
-                                        onClick = onTerrariumClick
+                            if (uiState.terrariums.isEmpty()) {
+                                item {
+                                    Text(
+                                        "No hay terrarios registrados. Toca '+' para añadir uno.",
+                                        color = Color.White.copy(alpha = 0.7f),
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 24.dp)
                                     )
                                 }
                             }
@@ -242,6 +308,48 @@ fun HomeScreen(
                     }
                 }
             }
+        }
+
+        if (showAddTerrariumDialog) {
+            AlertDialog(
+                onDismissRequest = {
+                    showAddTerrariumDialog = false
+                    newTerrariumName = ""
+                },
+                title = { Text("Añadir nuevo terrario") },
+                text = {
+                    OutlinedTextField(
+                        value = newTerrariumName,
+                        onValueChange = { newTerrariumName = it },
+                        label = { Text("Nombre del terrario") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            if (newTerrariumName.isNotBlank()) {
+                                viewModel.createTerrarium(newTerrariumName)
+                                showAddTerrariumDialog = false
+                                newTerrariumName = ""
+                            }
+                        }
+                    ) {
+                        Text("Crear")
+                    }
+                },
+                dismissButton = {
+                    Button(
+                        onClick = {
+                            showAddTerrariumDialog = false
+                            newTerrariumName = ""
+                        }
+                    ) {
+                        Text("Cancelar")
+                    }
+                }
+            )
         }
     }
 }
