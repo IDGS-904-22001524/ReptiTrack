@@ -52,12 +52,11 @@ fun TerrariumCard(
             // Terrarium image
             // Imagen del terrario
             Image(
-                painter = painterResource(id = R.drawable.terrario),
+                painter = painterResource(id = terrarium.imageResId ?: R.drawable.terrario),
                 contentDescription = "Imagen del terrario ${terrarium.name}",
                 modifier = Modifier
-                    .size(80.dp) // Smaller image size
-                    .clip(RoundedCornerShape(8.dp)) // Rounded corners
-                    .background(Color.DarkGray.copy(alpha = 0.8f)), // Slightly lighter dark background for image
+                    .size(80.dp)
+                    .clip(RoundedCornerShape(8.dp)), // Elimina el background oscuro
                 contentScale = ContentScale.Crop
             )
             Spacer(modifier = Modifier.height(8.dp))
@@ -104,22 +103,31 @@ fun TerrariumCard(
                 }
             }
 
-            Column( // Changed from Row to Column to stack temperature and humidity vertically
-                horizontalAlignment = Alignment.CenterHorizontally, // Center each sensor reading row
+            // Función para mostrar el valor o N/A si no hay datos válidos
+            fun formatSensorValue(value: Float?, unit: String): String {
+                return if (value == null || value == -1.0f) "N/A" else "${String.format("%.1f", value)}$unit"
+            }
+
+            // Función para mostrar el valor o N/A si no hay datos válidos (DS18B20 usa -127.0 como error)
+            fun formatDs18b20Value(value: Float?): String {
+                return if (value == null || value == -127.0f) "N/A" else "${String.format("%.1f", value)}°C"
+            }
+
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 // Temperature Reading
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     // Icono de Temperatura
                     Icon(
-                        painter = painterResource(id = R.drawable.ic_temperatura), // Using painter for custom drawable
+                        painter = painterResource(id = R.drawable.ic_temperatura),
                         contentDescription = "DHT22 Temperature",
-                        tint = Color.Unspecified,
-                        modifier = Modifier.size(28.dp) // Increased icon size
+                        modifier = Modifier.size(28.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp)) // Spacer between icon and text
                     Text(
-                        text = tempDHT?.let { "${String.format("%.1f", it)}°C" } ?: "N/A", // Show N/A if null
+                        text = formatSensorValue(tempDHT, "°C"),
                         style = MaterialTheme.typography.bodyLarge, // Changed to bodyLarge for better visibility
                         color = getTemperatureColor(tempDHT), // Dynamic color for text
                         fontWeight = FontWeight.Bold // Make sensor readings bold
@@ -131,17 +139,67 @@ fun TerrariumCard(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     // Icono de Humedad
                     Icon(
-                        painter = painterResource(id = R.drawable.ic_humedad), // Using painter for custom drawable
+                        painter = painterResource(id = R.drawable.ic_humedad),
                         contentDescription = "DHT22 Humidity",
-                        tint = Color.Unspecified,
-                        modifier = Modifier.size(28.dp) // Increased icon size
+                        modifier = Modifier.size(28.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp)) // Spacer between icon and text
                     Text(
-                        text = humDHT?.let { "${String.format("%.1f", it)}%" } ?: "N/A", // Show N/A if null
+                        text = formatSensorValue(humDHT, "%"),
                         style = MaterialTheme.typography.bodyLarge, // Changed to bodyLarge for better visibility
                         color = getHumidityColor(humDHT), // Dynamic color for text
                         fontWeight = FontWeight.Bold // Make sensor readings bold
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Lecturas DS18B20 (5 sensores)
+                Text(
+                    text = "DS18B20",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White.copy(alpha = 0.7f),
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = formatDs18b20Value(terrarium.ds18b20_1_temperature),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White,
+                        modifier = Modifier.weight(1f),
+                        maxLines = 1
+                    )
+                    Text(
+                        text = formatDs18b20Value(terrarium.ds18b20_2_temperature),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White,
+                        modifier = Modifier.weight(1f),
+                        maxLines = 1
+                    )
+                    Text(
+                        text = formatDs18b20Value(terrarium.ds18b20_3_temperature),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White,
+                        modifier = Modifier.weight(1f),
+                        maxLines = 1
+                    )
+                    Text(
+                        text = formatDs18b20Value(terrarium.ds18b20_4_temperature),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White,
+                        modifier = Modifier.weight(1f),
+                        maxLines = 1
+                    )
+                    Text(
+                        text = formatDs18b20Value(terrarium.ds18b20_5_temperature),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White,
+                        modifier = Modifier.weight(1f),
+                        maxLines = 1
                     )
                 }
             }

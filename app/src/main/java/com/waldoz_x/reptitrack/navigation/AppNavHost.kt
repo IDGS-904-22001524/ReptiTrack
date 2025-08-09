@@ -71,7 +71,7 @@ fun AppNavHost(
                 navigateToTerrariumDetailPlaceholder = {
                     navController.navigate(
                         Destinations.TERRARIUM_DETAIL_ROUTE.replace(
-                            "{${Destinations.TERRARIUM_ID_ARG}}", "placeholder_terrarium_id"
+                            "{${Destinations.TERRARIUM_ID_ARG}}", "Ipzro9ETmRX9moHzQ0QNXv06SBy1"
                         )
                     )
                 }
@@ -193,4 +193,3 @@ fun AppNavHost(
         }
     }
 }
-

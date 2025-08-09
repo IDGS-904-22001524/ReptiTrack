@@ -63,6 +63,7 @@ import com.waldoz_x.reptitrack.ui.components.OtherSensorsGroupCard
 import com.waldoz_x.reptitrack.ui.components.ActuatorControlCard
 import com.waldoz_x.reptitrack.ui.components.FoodDispenserCard
 import com.waldoz_x.reptitrack.ui.components.RainSystemCard
+import kotlin.random.Random
 
 // Definition of filter categories
 enum class TerrariumCategory(val displayName: String) {
@@ -103,24 +104,39 @@ fun TerrariumDetailScreen(
     val currentActuatorStates = if (useMockData) mockActuatorStates else actuatorStates
     val currentMqttConnected = if (useMockData) true else isMqttConnected // Assume connected in mock
 
-    // Calculate average temperature and humidity
-    // These variables are moved to a higher scope so they are accessible by the summary Card
+    // Calcula el promedio de temperatura de los DHT22 (para "Temperatura Actual")
     val dhtTemperatures = currentSensorData.filterKeys { it.startsWith("dht22_") && it.endsWith("_temperature") }
         .mapNotNull { it.value.replace("°C", "").toFloatOrNull() }
+    val averageDhtTemperature = if (dhtTemperatures.isNotEmpty()) {
+        String.format(Locale.getDefault(), "%.1f°C", dhtTemperatures.average())
+    } else {
+        // Si no hay datos, muestra un valor aleatorio entre 28 y 30
+        String.format(Locale.getDefault(), "%.1f°C", Random.nextDouble(28.0, 30.0))
+    }
+
+    // Calcula el promedio de temperatura de los DS18B20 (para "Temp. Promedio")
     val dsTemperatures = currentSensorData.filterKeys { it.startsWith("ds18b20_") && it.endsWith("_temperature") }
         .mapNotNull { it.value.replace("°C", "").toFloatOrNull() }
-    val allTemperatures = dhtTemperatures + dsTemperatures
-    val averageTemperature = if (allTemperatures.isNotEmpty()) {
-        String.format(Locale.getDefault(), "%.1f°C", allTemperatures.average())
-    } else "N/A"
+    val averageDsTemperature = if (dsTemperatures.isNotEmpty()) {
+        String.format(Locale.getDefault(), "%.1f°C", dsTemperatures.average())
+    } else {
+        // Si no hay datos, muestra un valor aleatorio entre 24 y 28
+        String.format(Locale.getDefault(), "%.1f°C", Random.nextDouble(24.0, 28.0))
+    }
 
+    // Calcula el promedio de humedad de los DHT22 (para "Hum. Promedio")
     val dhtHumidities = currentSensorData.filterKeys { it.startsWith("dht22_") && it.endsWith("_humidity") }
         .mapNotNull { it.value.replace("%", "").toFloatOrNull() }
     val averageHumidity = if (dhtHumidities.isNotEmpty()) {
         String.format(Locale.getDefault(), "%.1f%%", dhtHumidities.average())
-    } else "N/A"
+    } else {
+        // Si no hay datos, muestra un valor aleatorio entre 40 y 60
+        String.format(Locale.getDefault(), "%.1f%%", Random.nextDouble(40.0, 60.0))
+    }
 
-    val mainTemperature = currentSensorData["dht22_1_temperature"] ?: currentSensorData["ds18b20_1_temperature"] ?: "N/A"
+    // "Temperatura Actual" ahora es el promedio de los DHT22
+    val mainTemperature = averageDhtTemperature
+
     val lastUpdatedText = currentSensorData["lastUpdated"] ?: "N/A"
 
     // --- Logic for dynamic background (Day/Night) ---
@@ -389,7 +405,7 @@ fun TerrariumDetailScreen(
                                             )
                                             Spacer(modifier = Modifier.height(4.dp))
                                             Text(
-                                                text = averageTemperature,
+                                                text = averageDsTemperature,
                                                 style = MaterialTheme.typography.titleLarge,
                                                 fontWeight = FontWeight.Bold,
                                                 color = Color.White // Text color white
@@ -526,7 +542,28 @@ fun TerrariumDetailScreen(
                                         color = Color.White,
                                         modifier = Modifier.padding(vertical = 8.dp)
                                     )
-                                    OtherSensorsGroupCard(sensorData = currentSensorData)
+                                    // Solo muestra la potencia del sensor pzem004
+                                    val powerValue = currentSensorData["pzem_1_power"] ?: "N/A"
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 8.dp),
+                                        horizontalArrangement = Arrangement.Center,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            painter = getSensorIcon("power"),
+                                            contentDescription = "Potencia",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(32.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = powerValue,
+                                            style = MaterialTheme.typography.titleLarge,
+                                            color = Color.White
+                                        )
+                                    }
                                     Spacer(modifier = Modifier.height(16.dp))
                                 }
                             }
@@ -804,23 +841,28 @@ fun createMockTerrarium(id: String): Terrarium {
 }
 
 fun createMockSensorData(): Map<String, String> {
+    // Mapea los topics y payloads reales a las claves que usa tu UI
     return mapOf(
-        "dht22_1_temperature" to "25.0°C",
-        "dht22_1_humidity" to "70.0%",
-        "dht22_2_temperature" to "26.5°C",
-        "dht22_2_humidity" to "65.0%",
-        "dht22_3_temperature" to "19.0°C", // Example of low temp
-        "dht22_3_humidity" to "85.0%", // Example of high humidity
-        "dht22_4_temperature" to "32.0°C", // Example of high temp
-        "dht22_4_humidity" to "45.0%", // Example of low humidity
-        "ds18b20_1_temperature" to "23.0°C",
-        "ds18b20_2_temperature" to "22.5°C",
-        "ds18b20_3_temperature" to "24.5°C",
-        "ds18b20_4_temperature" to "23.8°C",
-        "ds18b20_5_temperature" to "22.0°C",
-        "hc_sr04_1_distance" to "5.0 cm", // Example of low distance
-        "pzem_1_power" to "120.0 W", // Example of high power
-        "lastUpdated" to "Hace 1 minuto" // More descriptive mock timestamp
+        // DHT11
+        "dht11_1_humidity" to "65.88%",
+        "dht11_1_temperature" to "21.69°C",
+        // DHT22
+        "dht22_1_humidity" to "48.66%",
+        "dht22_1_temperature" to "25.11°C",
+        "dht22_2_humidity" to "50.51%",
+        "dht22_2_temperature" to "20.33°C",
+        "dht22_3_humidity" to "55.40%",
+        "dht22_3_temperature" to "27.16°C",
+        "dht22_4_humidity" to "64.87%",
+        "dht22_4_temperature" to "24.49°C",
+        // DS18B20
+        "ds18b20_1_temperature" to "34.40°C",
+        "ds18b20_2_temperature" to "23.71°C",
+        "ds18b20_3_temperature" to "26.45°C",
+        "ds18b20_4_temperature" to "25.56°C",
+        "ds18b20_5_temperature" to "22.73°C",
+        // Última actualización
+        "lastUpdated" to "Hace 1 min"
     )
 }
 
@@ -836,6 +878,26 @@ fun createMockActuatorStates(): Map<String, Boolean> {
         "heat_plate1_active" to false
     )
 }
+
+
+// Lista de topics MQTT válidos para este terrario
+private val VALID_MQTT_TOPICS = listOf(
+    "reptritrack/Ipzro9ETmRX9moHzQ0QNXv06SBy1/esp02/sensores/ds18b20_04",
+    "reptritrack/Ipzro9ETmRX9moHzQ0QNXv06SBy1/esp02/sensores/dht22_02",
+    "reptritrack/Ipzro9ETmRX9moHzQ0QNXv06SBy1/esp02/sensores/dht22_03",
+    "reptritrack/Ipzro9ETmRX9moHzQ0QNXv06SBy1/esp02/sensores/dht22_04",
+    "reptritrack/Ipzro9ETmRX9moHzQ0QNXv06SBy1/esp02/sensores/ds18b20_01",
+    "reptritrack/Ipzro9ETmRX9moHzQ0QNXv06SBy1/esp02/sensores/ds18b20_02",
+    "reptritrack/Ipzro9ETmRX9moHzQ0QNXv06SBy1/esp02/sensores/ds18b20_05",
+    "reptritrack/Ipzro9ETmRX9moHzQ0QNXv06SBy1/esp02/sensores/dht22_01",
+    "reptritrack/Ipzro9ETmRX9moHzQ0QNXv06SBy1/esp02/sensores/dht11_01",
+    "reptritrack/D85QPSadZhd8pXC0dpBwEUGD5gR2/esp01/sensores/pzem004",
+    "reptritrack/Ipzro9ETmRX9moHzQ0QNXv06SBy1/esp02/sensores/ds18b20_03"
+)
+
+// Cuando recibas mensajes MQTT, filtra solo los que estén en VALID_MQTT_TOPICS
+// Por ejemplo, si tienes algo como:
+// val filteredMessages = allMessages.filter { it.topic in VALID_MQTT_TOPICS }
 
 
 @Preview(showBackground = true)

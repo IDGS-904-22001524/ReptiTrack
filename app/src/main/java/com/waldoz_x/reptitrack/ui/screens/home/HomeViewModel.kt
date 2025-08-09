@@ -52,6 +52,11 @@ class HomeViewModel @Inject constructor(
                     updateUserLoginStatus(userId, user.isAnonymous, user.email)
                     // Carga terrarios para el usuario actual. Es crucial que esto se llame después de tener el userId.
                     loadTerrariums(userId)
+                    // SUSCRIBIRSE AL TOPIC DE SENSORES MQTT CORRECTO
+                    val topic = "reptritrack/${userId}/#"
+                    viewModelScope.launch {
+                        hiveMqttClient.subscribeToTopic(topic)
+                    }
                 } else {
                     // No hay usuario, intentar iniciar sesión anónimamente.
                     // Esto ocurre en el primer inicio de la app o si el usuario cierra sesión.
@@ -63,8 +68,7 @@ class HomeViewModel @Inject constructor(
             // 2. Conectar MQTT
             // La conexión MQTT se inicia independientemente de la autenticación de Firebase.
             hiveMqttClient.connect()
-            // Suscribirse a un tópico general para todos los terrarios.
-            hiveMqttClient.subscribeToTopic("terrariums/data/#")
+            // (Ya no es necesario suscribirse a terrariums/data/# aquí)
         }
     }
 
@@ -211,11 +215,15 @@ class HomeViewModel @Inject constructor(
         }
         viewModelScope.launch {
             try {
-                // Estructura base del terrario, similar al JSON que diste
-                val terrariumId = firestore.collection("usuarios").document(userId)
-                    .collection("terrarios").document().id
+                // Genera el ID del documento de terrario correctamente
+                val terrariumsCollection = firestore.collection("usuarios")
+                    .document(userId)
+                    .collection("terrarios")
+                val terrariumDocRef = terrariumsCollection.document() // Esto genera un nuevo ID válido
+                val terrariumId = terrariumDocRef.id
 
                 val terrariumData = hashMapOf(
+                    "id" to terrariumId, // <-- Guarda el ID generado en el documento
                     "nombre" to newTerrariumName,
                     "dispositivos" to hashMapOf<String, Any>(
                         "esp01" to hashMapOf(
@@ -311,11 +319,8 @@ class HomeViewModel @Inject constructor(
                     )
                 )
 
-                val terrariumsCollection = firestore.collection("usuarios")
-                    .document(userId)
-                    .collection("terrarios")
-
-                terrariumsCollection.document(terrariumId).set(terrariumData).await()
+                // Guarda el terrario en la ruta correcta: usuarios/{userId}/terrarios/{terrariumId}
+                terrariumDocRef.set(terrariumData).await()
 
                 // Recarga la lista de terrarios después de crear uno nuevo
                 loadTerrariums(userId)

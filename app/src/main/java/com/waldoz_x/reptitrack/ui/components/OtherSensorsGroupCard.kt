@@ -26,10 +26,12 @@ import com.waldoz_x.reptitrack.ui.components.sensorUtils.getSensorIcon
 import androidx.compose.ui.text.style.TextAlign
 
 @Composable
-fun OtherSensorsGroupCard(sensorData: Map<String, String>) {
-    val distanceText = sensorData["hc_sr04_1_distance"] ?: "N/A"
-    val powerText = sensorData["pzem_1_power"] ?: "N/A"
-    val foodLoadsText = sensorData["food_dispenser_loads"] ?: "N/A"
+fun OtherSensorsGroupCard(
+    sensorData: Map<String, String>,
+) {
+    val distanceText = sensorData["hc_sr04_1_distance"]?.takeIf { it != "" && it != "null" } ?: "N/A"
+    val powerText = sensorData["pzem_1_power"]?.takeIf { it != "" && it != "null" } ?: "N/A"
+    val foodLoadsText = sensorData["food_dispenser_loads"]?.takeIf { it != "" && it != "null" } ?: "N/A"
 
     val distanceValue = distanceText.replace(" cm", "").toFloatOrNull()
     val powerValue = powerText.replace(" W", "").toFloatOrNull()
@@ -69,9 +71,8 @@ fun OtherSensorsGroupCard(sensorData: Map<String, String>) {
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        painter = getSensorIcon("distance"),
+                        painter = painterResource(id = getSensorIcon("distance")),
                         contentDescription = "Distancia",
-                        tint = Color.White,
                         modifier = Modifier.size(28.dp)
                     )
                     Spacer(modifier = Modifier.width(12.dp))
@@ -108,10 +109,10 @@ fun OtherSensorsGroupCard(sensorData: Map<String, String>) {
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        painter = getSensorIcon("power"),
+                        painter = painterResource(id = getSensorIcon("power")),
                         contentDescription = "Potencia",
-                        tint = Color.White,
-                        modifier = Modifier.size(28.dp)
+                        modifier = Modifier.size(28.dp),
+                        tint = Color.White
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
@@ -168,19 +169,6 @@ fun OtherSensorsGroupCard(sensorData: Map<String, String>) {
                         color = Color.White
                     )
                 }
-            }
-
-            // Mensaje de "No hay datos"
-            if (distanceText == "N/A" && powerText == "N/A" && foodLoadsText == "N/A") {
-                Text(
-                    text = "No hay datos de otros dispositivos disponibles.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.LightGray,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 16.dp),
-                    textAlign = TextAlign.Center
-                )
             }
         }
     }

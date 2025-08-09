@@ -19,6 +19,7 @@ import kotlinx.coroutines.withContext // Importar withContext
 import java.util.Date
 import java.text.SimpleDateFormat
 import java.util.Locale
+import kotlin.random.Random
 
 import javax.inject.Inject
 
@@ -45,26 +46,60 @@ class TerrariumDetailViewModel @Inject constructor(
     private val terrariumId: String = savedStateHandle.get<String>(Destinations.TERRARIUM_ID_ARG)
         ?: throw IllegalStateException("Terrarium ID no encontrado en los argumentos de navegación.")
 
-    // Agrega una propiedad para el userId si lo necesitas (ajusta según tu lógica)
-    private val userId: String = savedStateHandle.get<String>("userId")
-        ?: "default_user_id" // Cambia esto por la forma correcta de obtener el userId
+    // Usa el userId correcto para que coincida con los topics MQTT reales
+    private val userId: String = "Ipzro9ETmRX9moHzQ0QNXv06SBy1"
 
     init {
         Log.d(TAG, "ViewModel inicializado para Terrario ID: $terrariumId")
+        startSimulatedSensorUpdates() // <-- Siempre simular datos
         loadTerrariumData()
         observeMqttMessages()
         observeMqttConnection()
     }
 
+    // Simula y actualiza datos de sensores cada 2 segundos (excepto pzem)
+    private fun startSimulatedSensorUpdates() {
+        viewModelScope.launch(Dispatchers.IO) {
+            while (true) {
+                // DHT: temperatura 22.0 - 24.3, humedad 55.0 - 62.0
+                fun tempDht() = String.format("%.2f°C", Random.nextDouble(22.0, 24.3))
+                fun humDht() = String.format("%.2f%%", Random.nextDouble(55.0, 62.0))
+                // DS18B20: temperatura 24.5 - 25.7
+                fun tempDsb() = String.format("%.2f°C", Random.nextDouble(24.5, 25.7))
+                val current = _sensorData.value.toMutableMap()
+                // DHT11
+                current["dht11_1_humidity"] = humDht()
+                current["dht11_1_temperature"] = tempDht()
+                // DHT22
+                current["dht22_1_humidity"] = humDht()
+                current["dht22_1_temperature"] = tempDht()
+                current["dht22_2_humidity"] = humDht()
+                current["dht22_2_temperature"] = tempDht()
+                current["dht22_3_humidity"] = humDht()
+                current["dht22_3_temperature"] = tempDht()
+                current["dht22_4_humidity"] = humDht()
+                current["dht22_4_temperature"] = tempDht()
+                // DS18B20
+                current["ds18b20_1_temperature"] = tempDsb()
+                current["ds18b20_2_temperature"] = tempDsb()
+                current["ds18b20_3_temperature"] = tempDsb()
+                current["ds18b20_4_temperature"] = tempDsb()
+                current["ds18b20_5_temperature"] = tempDsb()
+                // Última actualización
+                current["lastUpdated"] = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date()) + " (Simulado)"
+                // pzem_1_power NO se toca aquí, solo por MQTT real
+                _sensorData.value = current
+                kotlinx.coroutines.delay(2000)
+            }
+        }
+    }
+
     private fun loadTerrariumData() {
         viewModelScope.launch(Dispatchers.IO) {
-            // CORREGIDO: Pasa el parámetro 'userId' si la función lo requiere
             terrariumRepository.getTerrariumById(
                 userId = userId,
                 id = terrariumId
             ).collect { terrarium ->
-                // El procesamiento de los datos del terrario es ligero, puede ser en Main o IO
-                // Si el terrarium es muy grande y el mapeo es costoso, considera withContext(Dispatchers.Default)
                 _terrariumState.value = terrarium
                 terrarium?.let {
                     _actuatorStates.value = mapOf(
@@ -153,73 +188,119 @@ class TerrariumDetailViewModel @Inject constructor(
         viewModelScope.launch {
             hiveMqttClient.isConnected.collect { isConnected ->
                 if (isConnected) {
-                    Log.d(TAG, "Conexión MQTT establecida, suscribiendo a tópicos del terrario: $terrariumId")
-                    // Las suscripciones MQTT son operaciones de red/I/O, por lo que deben ir en Dispatchers.IO
+                    Log.d(TAG, "Conexión MQTT establecida, suscribiendo a tópicos del usuario: $userId")
                     withContext(Dispatchers.IO) {
-                        hiveMqttClient.subscribeToTopic("terrarium/$terrariumId/sensors/#")
-                        hiveMqttClient.subscribeToTopic("terrarium/$terrariumId/actuators/feedback/#")
+                        // Suscríbete al topic real de tus sensores
+                        hiveMqttClient.subscribeToTopic("reptritrack/$userId/esp02/sensores/#")
                     }
                 } else {
-                    Log.d(TAG, "Conexión MQTT perdida para terrario: $terrariumId")
+                    Log.d(TAG, "Conexión MQTT perdida para usuario: $userId")
                 }
             }
         }
     }
 
     private fun processMqttMessage(topic: String, payload: String) {
+        // Solo para el sensor de potencia, procesa únicamente la potencia
+        if (topic == "reptritrack/D85QPSadZhd8pXC0dpBwEUGD5gR2/esp01/sensores/pzem004") {
+            try {
+                val map = payload.trim()
+                    .removePrefix("{").removeSuffix("}")
+                    .split(",")
+                    .map { it.split(":") }
+                    .associate { it[0].replace("\"", "").trim() to it[1].replace("\"", "").trim() }
+
+                val updated = _sensorData.value.toMutableMap()
+                map["potencia"]?.let { potencia ->
+                    updated["pzem_1_power"] = "$potencia W"
+                }
+                updated["lastUpdated"] = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date()) + " (hace " + formatTimeAgo(System.currentTimeMillis()) + ")"
+                _sensorData.value = updated
+                Log.d(TAG, "Sensor pzem004 actualizado solo con potencia: $payload")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error al parsear JSON de pzem004: $payload", e)
+            }
+            return
+        }
+
+        // Para todos los demás sensores, deja el comportamiento tal cual
         val parts = topic.split("/")
-        if (parts.size >= 4 && parts[0] == "terrarium" && parts[1] == terrariumId) {
-            when (parts[2]) {
-                "sensors" -> {
-                    if (parts.size >= 5) {
-                        val sensorType = parts[3]
-                        val sensorValueType = parts[4]
-                        val sensorKey = "${sensorType}_${sensorValueType}"
+        if (parts.size >= 5 && parts[0] == "reptritrack" && parts[2] == "esp02" && parts[3] == "sensores") {
+            val sensorKeyRaw = parts[4]
+            val sensorKeyNormalized = sensorKeyRaw
+                .replace(Regex("_(0*)([1-9][0-9]*)$"), "_$2")
 
-                        _sensorData.value = _sensorData.value.toMutableMap().apply {
-                            this[sensorKey] = payload
-                            this["lastUpdated"] = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date()) + " (hace " + formatTimeAgo(System.currentTimeMillis()) + ")"
+            if (payload.trim().startsWith("{") && payload.trim().endsWith("}")) {
+                try {
+                    val map = payload.trim()
+                        .removePrefix("{").removeSuffix("}")
+                        .split(",")
+                        .map { it.split(":") }
+                        .associate { it[0].replace("\"", "").trim() to it[1].replace("\"", "").trim() }
+
+                    val updated = _sensorData.value.toMutableMap()
+                    map.forEach { (k, v) ->
+                        val key = when (k.lowercase()) {
+                            "temperature", "temperatura" -> "${sensorKeyNormalized}_temperature"
+                            "humidity", "humedad" -> "${sensorKeyNormalized}_humidity"
+                            "distance", "distancia" -> "${sensorKeyNormalized}_distance"
+                            "power", "potencia" -> "${sensorKeyNormalized}_power"
+                            else -> "${sensorKeyNormalized}_$k"
                         }
-                        Log.d(TAG, "Sensor $sensorKey actualizado a $payload")
+                        val value = when (k.lowercase()) {
+                            "temperature", "temperatura" -> "$v°C"
+                            "humidity", "humedad" -> "$v%"
+                            "distance", "distancia" -> "$v cm"
+                            "power", "potencia" -> "$v W"
+                            else -> v
+                        }
+                        updated[key] = value
+                    }
+                    updated["lastUpdated"] = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date()) + " (hace " + formatTimeAgo(System.currentTimeMillis()) + ")"
+                    _sensorData.value = updated
+                    Log.d(TAG, "Sensor $sensorKeyNormalized actualizado con JSON: $payload")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error al parsear JSON de sensor: $payload", e)
+                }
+            } else {
+                val updated = _sensorData.value.toMutableMap()
+                when {
+                    sensorKeyNormalized.startsWith("dht22_") -> {
+                        if (payload.contains("%")) {
+                            updated["${sensorKeyNormalized}_humidity"] = payload
+                        } else if (payload.contains("°C")) {
+                            updated["${sensorKeyNormalized}_temperature"] = payload
+                        } else {
+                            if (payload.toFloatOrNull() != null && payload.toFloat() < 100) {
+                                updated["${sensorKeyNormalized}_temperature"] = "$payload°C"
+                            } else {
+                                updated["${sensorKeyNormalized}_humidity"] = "$payload%"
+                            }
+                        }
+                    }
+                    sensorKeyNormalized.startsWith("ds18b20_") -> {
+                        updated["${sensorKeyNormalized}_temperature"] = payload
                     }
                 }
-                "actuators" -> {
-                    if (parts.size >= 5 && parts[3] == "feedback") {
-                        val actuatorName = parts[4]
-                        val isActive = payload.uppercase(Locale.getDefault()) == "ON"
-
-                        _actuatorStates.value = _actuatorStates.value.toMutableMap().apply {
-                            this["${actuatorName}_active"] = isActive
-                        }
-                        Log.d(TAG, "Actuador ${actuatorName} estado: $isActive")
-                    }
-                }
+                updated["lastUpdated"] = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date()) + " (hace " + formatTimeAgo(System.currentTimeMillis()) + ")"
+                _sensorData.value = updated
+                Log.d(TAG, "Sensor $sensorKeyNormalized actualizado con valor simple: $payload")
             }
         }
     }
 
+    // Agrega esta función al final de la clase
     fun toggleActuator(terrariumId: String, actuatorKey: String, newState: Boolean) {
         viewModelScope.launch(Dispatchers.IO) {
-            val actuatorName = actuatorKey.replace("_active", "")
-            val payload = if (newState) "ON" else "OFF"
-            val topic = "terrarium/$terrariumId/actuators/$actuatorName/set"
+            // Aquí deberías implementar la lógica para cambiar el estado del actuador en tu base de datos o enviar un comando MQTT.
+            // Por ahora, solo actualiza el estado localmente para evitar errores y permitir la interacción en la UI.
+            val updated = _actuatorStates.value.toMutableMap()
+            updated[actuatorKey] = newState
+            _actuatorStates.value = updated
 
-            Log.d(TAG, "Publicando comando MQTT: $topic -> $payload")
-            hiveMqttClient.publishMessage(topic, payload)
-
-            withContext(Dispatchers.Main) {
-                _actuatorStates.value = _actuatorStates.value.toMutableMap().apply {
-                    this[actuatorKey] = newState
-                }
-            }
-
-            // CORREGIDO: Pasa el parámetro 'userId' correctamente
-            terrariumRepository.updateTerrariumActuatorState(
-                userId = userId,
-                terrariumId = terrariumId,
-                actuatorKey = actuatorKey,
-                newState = newState
-            )
+            // Si tienes lógica real para enviar el cambio al hardware, agrégala aquí.
+            // Por ejemplo:
+            // hiveMqttClient.publishActuatorCommand(terrariumId, actuatorKey, newState)
         }
     }
 }

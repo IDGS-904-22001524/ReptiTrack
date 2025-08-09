@@ -1,17 +1,13 @@
 package com.waldoz_x.reptitrack.ui.components.sensorUtils
 
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.painter.Painter
-import androidx.compose.ui.res.painterResource
 import com.waldoz_x.reptitrack.R
 
-@Composable
-fun getSensorIcon(sensorType: String): Painter {
-    return when (sensorType) {
-        "temperature" -> painterResource(id = R.drawable.ic_baseline_thermostat_24)
-        "humidity" -> painterResource(id = R.drawable.ic_outline_humidity_high_24)
-        "distance" -> painterResource(id = R.drawable.ic_outline_distance_24)
-        "power" -> painterResource(id = R.drawable.ic_outline_settings_power_24)
-        else -> painterResource(id = R.drawable.ic_baseline_cloud_24)
+fun getSensorIcon(sensorType: String): Int {
+    return when (sensorType.lowercase()) {
+        "temperature", "temperatura" -> R.drawable.ic_temperatura
+        "humidity", "humedad" -> R.drawable.ic_humedad
+        "distance", "distancia" -> R.drawable.ic_outline_sensors_24 // Usa el ícono que tengas para distancia
+        "power", "potencia" -> R.drawable.ic_outline_water_pump_24 // Usa el ícono que tengas para potencia
+        else -> R.drawable.ic_baseline_account_circle_24 // Ícono genérico o uno por defecto
     }
 }

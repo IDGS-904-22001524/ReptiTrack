@@ -257,8 +257,15 @@ fun HomeScreen(
                                 ) {
                                     uiState.terrariums.forEach { terrarium ->
                                         TerrariumCard(
-                                            terrarium = terrarium, // <-- Aquí pasa la instancia, no la clase
-                                            onClick = onTerrariumClick,
+                                            terrarium = terrarium,
+                                            onClick = { terrariumId ->
+                                                if (terrariumId.isNotBlank()) {
+                                                    onTerrariumClick(terrariumId)
+                                                } else {
+                                                    android.util.Log.e("HomeScreen", "Intento de navegar a detalle con terrariumId vacío")
+                                                    // Aquí puedes mostrar un Snackbar o Toast si lo deseas
+                                                }
+                                            },
                                             modifier = Modifier
                                                 .fillMaxWidth(0.5f)
                                                 .aspectRatio(1f)

@@ -21,97 +21,86 @@ import androidx.compose.ui.unit.sp // Importar para usar sp en el tamaño de fue
 import androidx.compose.foundation.layout.FlowRow // ¡Importación actualizada a la versión nativa de Compose!
 import androidx.compose.ui.text.style.TextAlign
 import com.waldoz_x.reptitrack.ui.components.sensorUtils.getHealthColor
+import androidx.compose.ui.res.painterResource
 import com.waldoz_x.reptitrack.ui.components.sensorUtils.getSensorIcon
 
 @Composable
-fun Ds18b20SensorGroupCard(sensorData: Map<String, String>) {
-    val dsTemperatures = sensorData.filterKeys { it.startsWith("ds18b20_") && it.endsWith("_temperature") }
-
+fun Ds18b20SensorGroupCard(
+    sensorData: Map<String, String>,
+    hasMqttData: Boolean = false // <- este parámetro ya no se usa
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(8.dp)
-            .animateContentSize(animationSpec = tween(durationMillis = 300)), // Animación para el tamaño del contenido
-        shape = RoundedCornerShape(20.dp), // Bordes más redondeados
-        elevation = CardDefaults.cardElevation(6.dp), // Sombra consistente
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF2C3E50).copy(alpha = 0.7f)) // Tono oscuro y transparente
+            .animateContentSize(animationSpec = tween(durationMillis = 300)),
+        shape = RoundedCornerShape(20.dp),
+        elevation = CardDefaults.cardElevation(6.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF2C3E50).copy(alpha = 0.7f))
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp) // Más padding interno
+                .padding(16.dp)
         ) {
             Text(
-                text = "Sensores de Temperatura", // Nombre más amigable
-                style = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp), // Tamaño de fuente más grande
-                fontWeight = FontWeight.ExtraBold, // Más énfasis
+                text = "Sensores de Temperatura",
+                style = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp),
+                fontWeight = FontWeight.ExtraBold,
                 color = Color.White,
-                modifier = Modifier.padding(bottom = 12.dp) // Más espacio debajo del título
+                modifier = Modifier.padding(bottom = 12.dp)
             )
             FlowRow(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center, // Centrar los elementos en el FlowRow
-                verticalArrangement = Arrangement.spacedBy(16.dp) // Más espacio vertical entre elementos
+                horizontalArrangement = Arrangement.Center,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Iterar hasta 5 sensores, o menos si no hay datos
                 for (i in 1..5) {
                     val key = "ds18b20_${i}_temperature"
-                    val value = dsTemperatures[key]
-                    val tempValue = value?.replace("°C", "")?.toFloatOrNull()
+                    val value = sensorData[key]?.takeIf { it != "" && it != "null" } ?: "N/A"
+                    val tempValue = value.replace("°C", "").toFloatOrNull()
                     val tempColor = getHealthColor(tempValue, "temperature")
 
-                    // Nuevo diseño para cada ítem de temperatura
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
-                            .padding(horizontal = 12.dp) // Más espacio horizontal para cada columna
-                            .width(IntrinsicSize.Min) // Asegura que la columna se ajuste a su contenido
+                            .padding(horizontal = 12.dp)
+                            .width(IntrinsicSize.Min)
                     ) {
                         Icon(
-                            painter = getSensorIcon("temperature"),
+                            painter = painterResource(id = getSensorIcon("temperature")),
                             contentDescription = "Temperatura",
-                            tint = Color.White,
-                            modifier = Modifier.size(36.dp) // Ícono aún más grande
+                            modifier = Modifier.size(36.dp),
+                            tint = Color.White
                         )
-                        Spacer(modifier = Modifier.height(6.dp)) // Espacio entre ícono y etiqueta
+                        Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "Temp $i", // Etiqueta del sensor
-                            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 15.sp), // Tamaño de fuente ligeramente más grande
+                            text = "Temp $i",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 15.sp),
                             fontWeight = FontWeight.SemiBold,
                             color = Color.LightGray,
                             textAlign = TextAlign.Center
                         )
-                        Spacer(modifier = Modifier.height(2.dp)) // Espacio entre etiqueta y valor
+                        Spacer(modifier = Modifier.height(2.dp))
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.Center
                         ) {
                             Text(
-                                text = value ?: "N/A",
-                                style = MaterialTheme.typography.headlineSmall.copy(fontSize = 24.sp), // Tamaño de fuente más grande para el valor
-                                fontWeight = FontWeight.ExtraBold, // Más énfasis en el valor
+                                text = value,
+                                style = MaterialTheme.typography.headlineSmall.copy(fontSize = 24.sp),
+                                fontWeight = FontWeight.ExtraBold,
                                 color = tempColor
                             )
                             if (tempValue != null) {
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Canvas(modifier = Modifier.size(12.dp), onDraw = { // Círculo un poco más grande
+                                Canvas(modifier = Modifier.size(12.dp), onDraw = {
                                     drawCircle(color = tempColor)
                                 })
                             }
                         }
                     }
                 }
-            }
-            if (dsTemperatures.isEmpty()) {
-                Text(
-                    text = "No hay datos de sensores DS18B20 disponibles.",
-                    style = MaterialTheme.typography.bodyMedium, // Tamaño de fuente ajustado
-                    color = Color.LightGray,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 16.dp), // Más espacio superior
-                    textAlign = TextAlign.Center
-                )
             }
         }
     }

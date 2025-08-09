@@ -28,7 +28,7 @@ class TerrariumFirebaseDataSource @Inject constructor(
      * @return Flow que emite una lista de objetos TerrariumDto.
      */
     fun getAllTerrariums(userId: String): Flow<List<TerrariumDto>> = callbackFlow {
-        val subscription = getUserTerrariumsCollection(userId) // Usa la colección específica del usuario
+        val subscription = getUserTerrariumsCollection(userId)
             .addSnapshotListener { snapshot, e ->
                 if (e != null) {
                     Log.e(TAG, "Error al escuchar terrarios para el usuario $userId: ${e.message}", e)
@@ -36,8 +36,9 @@ class TerrariumFirebaseDataSource @Inject constructor(
                     return@addSnapshotListener
                 }
 
-                if (snapshot != null && !snapshot.isEmpty) {
-                    val terrariums = snapshot.documents.mapNotNull { doc ->
+                // Cambia la lógica para que siempre emita una lista (vacía o con datos)
+                val terrariums = if (snapshot != null && !snapshot.isEmpty) {
+                    snapshot.documents.mapNotNull { doc ->
                         try {
                             doc.toObject(TerrariumDto::class.java)
                         } catch (ex: Exception) {
@@ -45,10 +46,10 @@ class TerrariumFirebaseDataSource @Inject constructor(
                             null
                         }
                     }
-                    trySend(terrariums).isSuccess
                 } else {
-                    trySend(emptyList()).isSuccess
+                    emptyList()
                 }
+                trySend(terrariums).isSuccess
             }
         awaitClose { subscription.remove() }
     }
@@ -60,7 +61,15 @@ class TerrariumFirebaseDataSource @Inject constructor(
      * @return Flow que emite el objeto TerrariumDto si se encuentra, o null si no.
      */
     fun getTerrariumById(userId: String, terrariumId: String): Flow<TerrariumDto?> = callbackFlow {
-        val docRef = getUserTerrariumsCollection(userId).document(terrariumId) // Usa la colección específica del usuario
+        // La validación ya existe:
+        if (userId.isBlank() || terrariumId.isBlank()) {
+            Log.e(TAG, "getTerrariumById: userId o terrariumId vacío. userId='$userId', terrariumId='$terrariumId'")
+            trySend(null).isSuccess
+            close(IllegalArgumentException("userId y terrariumId no pueden estar vacíos"))
+            return@callbackFlow
+        }
+
+        val docRef = getUserTerrariumsCollection(userId).document(terrariumId)
         val subscription = docRef.addSnapshotListener { snapshot, e ->
             if (e != null) {
                 Log.e(TAG, "Error al escuchar terrario por ID ($terrariumId) para el usuario $userId: ${e.message}", e)

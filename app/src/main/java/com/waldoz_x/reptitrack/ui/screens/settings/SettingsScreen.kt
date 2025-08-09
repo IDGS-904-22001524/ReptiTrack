@@ -95,7 +95,7 @@ fun SettingsScreen(
                 SettingsCard {
                     SettingsItem(
                         icon = painterResource(id = R.drawable.ic_outline_laptop_windows_24),
-                        text = "Ver Detalle Terrario (DEV)",
+                        text = "Mi terrario", // Cambiado de "Ver Detalle Terrario (DEV)"
                         onClick = navigateToTerrariumDetailPlaceholder, // Navega a la nueva pantalla
                         trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Ir a") }
                     )

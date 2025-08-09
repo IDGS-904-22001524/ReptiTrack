@@ -23,91 +23,96 @@ import androidx.compose.ui.unit.sp // Importar para usar sp en el tamaño de fue
 // Importar las funciones reales de sensorUtils
 import com.waldoz_x.reptitrack.ui.components.sensorUtils.getHealthColor
 import com.waldoz_x.reptitrack.ui.components.sensorUtils.getSensorIcon
+import androidx.compose.ui.res.painterResource
+import com.waldoz_x.reptitrack.R
 
 // --- Tu Composable original modificado para ser más compacto ---
 @Composable
-fun Dht22SensorGroupCard(sensorNumber: Int, sensorData: Map<String, String>) {
+fun Dht22SensorGroupCard(
+    sensorNumber: Int,
+    sensorData: Map<String, String>,
+    hasMqttData: Boolean = false // <- este parámetro ya no se usa
+) {
     val tempKey = "dht22_${sensorNumber}_temperature"
     val humKey = "dht22_${sensorNumber}_humidity"
     val temperatureValue = sensorData[tempKey]?.replace("°C", "")?.toFloatOrNull()
     val humidityValue = sensorData[humKey]?.replace("%", "")?.toFloatOrNull()
 
-    val temperatureText = sensorData[tempKey] ?: "N/A"
-    val humidityText = sensorData[humKey] ?: "N/A"
+    // Si no hay datos, muestra "N/A"
+    val temperatureText = sensorData[tempKey]?.takeIf { !it.isNullOrBlank() && it != "null" } ?: "N/A"
+    val humidityText = sensorData[humKey]?.takeIf { !it.isNullOrBlank() && it != "null" } ?: "N/A"
 
     val tempColor = getHealthColor(temperatureValue, "temperature")
     val humColor = getHealthColor(humidityValue, "humidity")
 
     Card(
         modifier = Modifier
-            .width(200.dp) // Card más ancho
-            .height(130.dp) // Altura reducida para ahorrar espacio
+            .width(200.dp)
+            .height(130.dp)
             .padding(8.dp),
         shape = RoundedCornerShape(20.dp),
         elevation = CardDefaults.cardElevation(6.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF2C3E50).copy(alpha = 0.7f)) // Tono más oscuro y transparente
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF2C3E50).copy(alpha = 0.7f))
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center // Centrar verticalmente el contenido restante
+            verticalArrangement = Arrangement.Center
         ) {
-            // Se ha eliminado el Text del título "Sensor de Ambiente X" y su Spacer.
-            // Esto hace que la tarjeta sea más compacta.
-
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Icon(
-                    painter = getSensorIcon("temperature"),
+                    painter = painterResource(id = getSensorIcon("temperature")),
                     contentDescription = "Temperatura",
-                    tint = Color.White,
-                    modifier = Modifier.size(32.dp) // Ícono más grande
+                    modifier = Modifier.size(32.dp),
+                    tint = Color.White
                 )
-                Spacer(modifier = Modifier.width(10.dp)) // Más espacio entre ícono y texto
+                Spacer(modifier = Modifier.width(10.dp))
                 Text(
                     text = temperatureText,
-                    style = MaterialTheme.typography.headlineMedium.copy(fontSize = 22.sp), // Tamaño de fuente más grande para los valores
+                    style = MaterialTheme.typography.headlineMedium.copy(fontSize = 22.sp),
                     fontWeight = FontWeight.SemiBold,
                     color = tempColor
                 )
                 if (temperatureValue != null) {
-                    Spacer(modifier = Modifier.width(8.dp)) // Espacio ajustado
-                    Canvas(modifier = Modifier.size(12.dp), onDraw = { // Círculo más grande
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Canvas(modifier = Modifier.size(12.dp), onDraw = {
                         drawCircle(color = tempColor)
                     })
                 }
             }
-            Spacer(modifier = Modifier.height(10.dp)) // Espacio entre las filas de datos
+            Spacer(modifier = Modifier.height(10.dp))
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Icon(
-                    painter = getSensorIcon("humidity"),
+                    painter = painterResource(id = getSensorIcon("humidity")),
                     contentDescription = "Humedad",
-                    tint = Color.White,
-                    modifier = Modifier.size(32.dp) // Ícono más grande
+                    modifier = Modifier.size(32.dp),
+                    tint = Color.White
                 )
-                Spacer(modifier = Modifier.width(10.dp)) // Más espacio entre ícono y texto
+                Spacer(modifier = Modifier.width(10.dp))
                 Text(
                     text = humidityText,
-                    style = MaterialTheme.typography.headlineMedium.copy(fontSize = 22.sp), // Tamaño de fuente más grande para los valores
+                    style = MaterialTheme.typography.headlineMedium.copy(fontSize = 22.sp),
                     fontWeight = FontWeight.SemiBold,
                     color = humColor
                 )
                 if (humidityValue != null) {
-                    Spacer(modifier = Modifier.width(8.dp)) // Espacio ajustado
-                    Canvas(modifier = Modifier.size(12.dp), onDraw = { // Círculo más grande
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Canvas(modifier = Modifier.size(12.dp), onDraw = {
                         drawCircle(color = humColor)
                     })
                 }
             }
+            // ...NO mostrar mensaje de "Esperando datos..."...
         }
     }
 }

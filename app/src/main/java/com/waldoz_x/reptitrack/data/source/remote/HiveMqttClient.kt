@@ -1,6 +1,11 @@
 package com.waldoz_x.reptitrack.data.source.remote
 
 import android.util.Log
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.suspendCancellableCoroutine
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken
 import org.eclipse.paho.client.mqttv3.MqttCallbackExtended
 import org.eclipse.paho.client.mqttv3.MqttClient
@@ -8,9 +13,7 @@ import org.eclipse.paho.client.mqttv3.MqttConnectOptions
 import org.eclipse.paho.client.mqttv3.MqttException
 import org.eclipse.paho.client.mqttv3.MqttMessage
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.suspendCancellableCoroutine
+import org.json.JSONObject
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -36,6 +39,11 @@ class HiveMqttClient @Inject constructor() {
 
     private val _receivedMessages = MutableStateFlow<Pair<String, String>?>(null)
     val receivedMessages: StateFlow<Pair<String, String>?> = _receivedMessages
+
+    // --- NUEVO: Estado global de sensores por terrario ---
+    // userId -> terrariumId -> sensorKey -> valor
+    private val _terrariumSensorData = MutableStateFlow<Map<String, Map<String, Map<String, String>>>>(emptyMap())
+    val terrariumSensorData: StateFlow<Map<String, Map<String, Map<String, String>>>> = _terrariumSensorData.asStateFlow()
 
     // No hay bloque 'init' que haga trabajo pesado. La configuración se hace al conectar.
 
@@ -115,13 +123,45 @@ class HiveMqttClient @Inject constructor() {
             override fun connectionLost(cause: Throwable?) {
                 Log.e(TAG, "Conexión MQTT perdida: ${cause?.message}", cause)
                 _isConnected.value = false
-                // Opcional: Reintentar la conexión automáticamente aquí o notificar a la UI para que reintente.
             }
 
             override fun messageArrived(topic: String, message: MqttMessage) {
                 val payload = String(message.payload)
                 Log.d(TAG, "Mensaje recibido en $topic: $payload")
                 _receivedMessages.value = Pair(topic, payload)
+                // --- Procesar y actualizar el mapa de sensores ---
+                try {
+                    val parts = topic.split("/")
+                    if (parts.size >= 6 && parts[0] == "reptritrack") {
+                        val userId = parts[1]
+                        val terrariumId = parts[2]
+                        val espId = parts[3]
+                        val tipo = parts[4]
+                        val sensorKeyRaw = parts[5] // ej: "dht22_01", "ds18b20_03"
+                        // Normaliza el sensorKey: dht22_01 -> dht22_1, ds18b20_03 -> ds18b20_3
+                        val sensorKey = sensorKeyRaw.replace("_0", "_")
+                        val json = JSONObject(payload)
+                        val sensorData = mutableMapOf<String, String>()
+                        json.keys().forEach { key ->
+                            // Traduce las claves del JSON a las que espera la UI
+                            val mappedKey = when (key) {
+                                "humedad" -> "humidity"
+                                "temperatura" -> "temperature"
+                                else -> key
+                            }
+                            sensorData["${sensorKey}_${mappedKey}"] = json.get(key).toString()
+                        }
+                        _terrariumSensorData.update { oldMap ->
+                            val userMap = oldMap[userId] ?: emptyMap()
+                            val terrariumMap = userMap[terrariumId]?.toMutableMap() ?: mutableMapOf()
+                            terrariumMap.putAll(sensorData)
+                            val newUserMap = userMap.toMutableMap().apply { put(terrariumId, terrariumMap) }
+                            oldMap.toMutableMap().apply { put(userId, newUserMap) }
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error procesando mensaje MQTT: ${e.message}", e)
+                }
             }
 
             override fun deliveryComplete(token: IMqttDeliveryToken) {
@@ -220,5 +260,10 @@ class HiveMqttClient @Inject constructor() {
         } catch (e: Exception) {
             Log.e(TAG, "Error al publicar mensaje en $topic: ${e.message}", e)
         }
+    }
+
+    suspend fun subscribeToSensorTopics(userId: String, terrariumId: String = "esp02") {
+        val topic = "reptritrack/$userId/$terrariumId/sensores/#"
+        subscribeToTopic(topic, qos = 1)
     }
 }
